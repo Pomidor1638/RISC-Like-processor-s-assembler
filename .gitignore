@@ -1,0 +1,61 @@
+# Файлы сборки и объектные файлы
+*.obj
+*.pdb
+*.idb
+*.ilk
+*.pch
+*.res
+*.tlb
+*.tli
+*.tlh
+*.tmp
+*.tmp_proj
+*_wp.ttf
+*.log
+*.iobj
+*.ipdb
+
+# Файлы Visual Studio
+*.vcxproj.user
+*.vcxproj.filters
+*.sln.docstates
+*.suo
+*.user
+*.userosscache
+*.sln.iml
+
+# Папки сборки
+[Bb]uild/
+[Bb]uild*/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+
+# Файлы кэша
+.vs/
+.vscode/
+
+# Другие временные файлы
+*.aps
+*.ncb
+*.opensdf
+*.sdf
+*.cachefile
+
+# Файлы интуисканса
+*.ipch/
+
+# Файлы инсталлятора
+*.msi
+*.msix
+*.msm
+*.msp
+
+# Файлы макросов
+*.psess
+*.vsp
+*.vspx
