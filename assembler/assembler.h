@@ -7,7 +7,7 @@ public:
 
 	bool assemble(std::string source_code, bool verbose);
 
-	void writeFile(std::string output_file);
+	bool writeFile(std::string output_file);
 
 	std::string getError() const;
 
@@ -23,6 +23,9 @@ protected:
 		UNKNWN_REGISTER,
 		UNKNWN_DIRECTIVE,
 		UNKNWN_MACRO,
+
+		CANNOT_OPEN_FILE,
+		CANNOT_WRITE_FILE,
 
 		UNKNWN_TOKEN
 	};

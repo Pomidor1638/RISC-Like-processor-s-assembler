@@ -47,18 +47,18 @@ const int OPCODE_HLT = 3;
 
 
 // funcs
-const int FUNC_ADD = 0;
-const int FUNC_SUB = 1;
-
-const int FUNC_AND = 2;
-const int FUNC_ORR = 3;
-const int FUNC_NOT = 4;
-const int FUNC_TCP = 5;
-const int FUNC_SHL = 6;
-const int FUNC_SHR = 7;
-
-const int FUNC_LWD = 8;
-const int FUNC_SWD = 9;
+const int FUNC_ADD =  0;
+const int FUNC_SUB =  1;
+					  
+const int FUNC_AND =  2;
+const int FUNC_ORR =  3;
+const int FUNC_NOT =  4;
+const int FUNC_TCP =  5;
+const int FUNC_SHL =  6;
+const int FUNC_SHR =  7;
+					  
+const int FUNC_LWD =  8;
+const int FUNC_SWD =  9;
 
 const int FUNC_JPR = 14;
 const int FUNC_JRL = 15;
@@ -75,49 +75,63 @@ const int FUNC_JEZ = 23;
 const int FUNC_JNZ = 24;
 const int FUNC_JIR = 25;
 
+const int FUNC_NOP = 31;
+
 const std::string ENTRY_POINT = "START";
 
-const std::map<std::string, int> OPCODES
+
+// There are only 3 memory-request opcodes
+// There are no Immediate jumps
+
+const std::map<std::string, std::pair<int, int>> OPCODES
 {
-	{ "NOP", OPCODE_NOP },
-	{ "LWI", OPCODE_LWI },
-	{ "HLT", OPCODE_HLT }
+	// No func opcodes
+	{ "NOP", {OPCODE_NOP, FUNC_NOP} },
+	{ "LWI", {OPCODE_LWI, FUNC_NOP} },
+	{ "HLT", {OPCODE_HLT, FUNC_NOP} },
+
+	// Arithmetic
+	{ "ADD", {OPCODE_R  , FUNC_ADD} },
+	{ "SUB", {OPCODE_R  , FUNC_SUB} },
+	{ "TCP", {OPCODE_R  , FUNC_TCP} },
+	
+	// Logical
+	{ "AND", {OPCODE_R  , FUNC_AND} },
+	{ "ORR", {OPCODE_R  , FUNC_ORR} },
+	{ "NOT", {OPCODE_R  , FUNC_NOT} },
+	
+	// Shifts
+	{ "SHL", {OPCODE_R  , FUNC_SHL} },
+	{ "SHR", {OPCODE_R  , FUNC_SHR} },
+	
+	/*
+		Memory-request opcodes
+		These opcodes automatically return to PC + 1 after call
+		eliminating the need for explicit return instructions
+	*/
+	{ "LWD", {OPCODE_R  , FUNC_LWD} }, // LWD R0, R1 - memory[R0] -> R1, it doesn't write return address to registers
+	{ "SWD", {OPCODE_R  , FUNC_SWD} },
+	
+	// Move (i could use ADD instead MOV, but i lazy to change CPU opcodes)
+	{ "MOV", {OPCODE_R  , FUNC_MOV} },
+	{ "MVH", {OPCODE_R  , FUNC_MVH} },
+	{ "MVL", {OPCODE_R  , FUNC_MVL} },
+
+	// Non-condition jumps
+	{ "JPR", {OPCODE_R  , FUNC_JPR} },
+	{ "JRL", {OPCODE_R  , FUNC_JRL} }, // this shit load return address to reg
+
+	// Condition-depend jumps
+	{ "JNE", {OPCODE_R  , FUNC_JNE} },
+	{ "JEQ", {OPCODE_R  , FUNC_JEQ} },
+	{ "JGZ", {OPCODE_R  , FUNC_JGZ} },
+	{ "JLZ", {OPCODE_R  , FUNC_JLZ} },
+	{ "JEZ", {OPCODE_R  , FUNC_JEZ} },
+	{ "JNZ", {OPCODE_R  , FUNC_JNZ} },
+	{ "JIR", {OPCODE_R  , FUNC_JIR} }
+
 };
 
-// OPCODE_R
-
-const std::map<std::string, int> FUNCS
-{
-
-	{ "ADD", FUNC_ADD },
-	{ "SUB", FUNC_SUB },
-	{ "AND", FUNC_AND },
-	{ "ORR", FUNC_ORR },
-	{ "NOT", FUNC_NOT },
-	{ "TCP", FUNC_TCP },
-	{ "SHL", FUNC_SHL },
-	{ "SHR", FUNC_SHR },
-
-	{ "LWD", FUNC_LWD },
-	{ "SWD", FUNC_SWD },
-
-	{ "JPR", FUNC_JPR },
-	{ "JRL", FUNC_JRL },
-
-	{ "MOV", FUNC_MOV },
-	{ "MVH", FUNC_MVH },
-	{ "MVL", FUNC_MVL },
-
-	{ "JNE", FUNC_JNE },
-	{ "JEQ", FUNC_JEQ },
-	{ "JGZ", FUNC_JGZ },
-	{ "JLZ", FUNC_JLZ },
-	{ "JEZ", FUNC_JEZ },
-	{ "JNZ", FUNC_JNZ },
-	{ "JIR", FUNC_JIR }
-};
-
-// REGISTERS
 
 const std::map<std::string, int> REGISTERS
 {
