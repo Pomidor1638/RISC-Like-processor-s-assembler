@@ -19,15 +19,22 @@ protected:
 
 	enum class ErrorType
 	{
-		UNKNWN_OPCODE = 1,
-		UNKNWN_REGISTER,
-		UNKNWN_DIRECTIVE,
-		UNKNWN_MACRO,
+		UNEXCEPTED_OPCODE = 1,
+		UNEXCEPTED_ARGS_NUM,
+		UNEXCEPTED_REGISTER,
+		UNEXCEPTED_DIRECTIVE,
+		UNEXCEPTED_MACRO,
+		UNEXCEPTED_TOKEN,
 
 		CANNOT_OPEN_FILE,
+		CANNOT_READ_FILE,
 		CANNOT_WRITE_FILE,
 
-		UNKNWN_TOKEN
+		MULTIPLE_DEFENITIONS,
+		MULTIPLE_ARGUMENTS,
+
+		NO_ENTRY_POINT,
+
 	};
 
 	struct Error
@@ -37,12 +44,33 @@ protected:
 		int line;
 	};
 
+	std::list<Error> errors;
+
+
 	std::map<std::string, address_t> labels;
 	std::map<std::string, address_t> pointers;
 
-	std::list<Error> errors;
+	struct AssembledBlock
+	{
+		std::string label;
+		address_t base_addres;
+		std::vector<instruction_t> assembled_intructions;
+	};
 
-	std::vector<instruction_t> assembled_instructions;
+	std::vector<AssembledBlock> assembled_blocks;
+
+	AssembledBlock curBlock;
+
+
+	bool has_entry_point;
+	int line_num;
+
+	void addError(ErrorType type, std::string contents, int line);
+
+	void processInstruction(const std::string& line);
+	void processLabel(const std::string& line);
+
+
 
 public:
 
