@@ -34,7 +34,7 @@ const std::map<std::string, OPCODE_META> OPCODES
 {
     // No func opcodes
     { "NOP", {0, _NOP, OPCODE_NOP, FUNC_NOP} },
-    { "LWI", {1, _LWI, OPCODE_LWI, FUNC_NOP} },
+    { "LWI", {2, _LWI, OPCODE_LWI, FUNC_NOP} },
     { "HLT", {0, _HLT, OPCODE_HLT, FUNC_NOP} },
 
     // Arithmetic

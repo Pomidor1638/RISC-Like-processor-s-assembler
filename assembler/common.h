@@ -1,4 +1,10 @@
-#pragma once
+﻿#pragma once
+
+#include <iostream>
+#include <iomanip>
+
+#include <fstream>
+#include <sstream>
 
 #include <cstdint>
 
@@ -10,21 +16,22 @@
 #include <algorithm>
 #include <cctype>
 
-#include <fstream>
-#include <sstream>
+
+typedef uint16_t instruction_t;
 
 typedef uint8_t byte;
 typedef int address_t;
 
-typedef uint16_t instruction_t;
+const uint64_t MAX_ADDRES = (address_t)-1;
+
+
 
 // scary C moment
-
 #include "pack.h"
 
 /*
 	I Would optimize with switch statements,
-	I wouldn't rather do YandereDev moment 
+	I wouldn't rather do YandereDev moment
 	for my codebase safety.
 */
 
@@ -33,9 +40,9 @@ struct OPCODE_META
 	//int instruction_size;	// there is only 1 instruction use 2 words - LWI
 
 	int opcode_args_num;		// MOV rd, rs - 2 args; 
-							// ADD rd, rs, rt - 3 args; 
-							// JPR rs - 1 arg; 
-							// HLT - no args
+	// ADD rd, rs, rt - 3 args; 
+	// JPR rs - 1 arg; 
+	// HLT - no args
 
 	int opcode_num; // symbolic num for switch optimisation
 	int opcode_code;
@@ -54,7 +61,7 @@ const std::string ENTRY_POINT = "START"; // No entry point - No assemble
 // "R" + i
 // string r = "R0"; r[1] += i;
 // but I fuck it
- 
+
 const std::map<std::string, int> REGISTERS
 {
 	{ "R0", 0 },
@@ -70,3 +77,12 @@ const std::map<std::string, int> REGISTERS
 // directives
 
 #include "directives.h"
+
+
+// Fear me
+const std::string CRITICAL_ERROR_HEADER = R"(
+##========================##
+||        CRITICAL        ||
+||     ASSEMBLER ERROR    ||
+##========================##
+)";

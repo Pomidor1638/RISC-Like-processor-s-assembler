@@ -9,12 +9,6 @@
 //   R4 - condition check
 // =============================================
 
-START:
-    LWI R0, 0           // Initialize counter to 0
-    LWI R1, loop        // Load loop address (assembler calculates)
-    LWI R2, 1           // Increment value
-    LWI R3, 16          // Loop limit
-
 loop:
     ADD R0, R2, R0      // R0++ (increment counter)
     
@@ -22,3 +16,10 @@ loop:
     JGZ R4, R1          // If R0 < 16, jump back to loop
     
     HLT                 // Halt processor (counter reached 16)
+
+
+START:
+    LWI R0, 0           // Initialize counter to 0
+    LWI R1, loop        // Load loop address (assembler calculates)
+    LWI R2, 1           // Increment value
+    LWI R3, 16          // Loop limit

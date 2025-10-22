@@ -46,19 +46,19 @@ const int FUNC_SHR = 7;
 const int FUNC_LWD = 8;
 const int FUNC_SWD = 9;
 
-const int FUNC_JPR = 14;
-const int FUNC_JRL = 15;
+const int FUNC_JPR = 10;
+const int FUNC_JRL = 11;
 
-const int FUNC_MOV = 16;
-const int FUNC_MVH = 17;
-const int FUNC_MVL = 18;
+const int FUNC_MOV = 12;
+const int FUNC_MVH = 13;
+const int FUNC_MVL = 14;
 
-const int FUNC_JNE = 19;
-const int FUNC_JEQ = 20;
-const int FUNC_JGZ = 21;
-const int FUNC_JLZ = 22;
-const int FUNC_JEZ = 23;
-const int FUNC_JNZ = 24;
-const int FUNC_JIR = 25;
+const int FUNC_JNE = 15;
+const int FUNC_JEQ = 16;
+const int FUNC_JGZ = 17;
+const int FUNC_JLZ = 18;
+const int FUNC_JEZ = 19;
+const int FUNC_JNZ = 20;
+const int FUNC_JIR = 21;
 
-const int FUNC_NOP = 31;
+const int FUNC_NOP = (1 << FUNC_SIZE) - 1;

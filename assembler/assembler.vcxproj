@@ -125,6 +125,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="asm_first_pass.cpp" />
+    <ClCompile Include="asm_second_pass.cpp" />
     <ClCompile Include="assembler.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="utils.cpp" />
