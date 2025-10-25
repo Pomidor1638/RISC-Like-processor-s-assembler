@@ -12,6 +12,7 @@
 #include <list>
 #include <string>
 #include <map>
+#include <functional>
 
 #include <algorithm>
 #include <cctype>
@@ -35,7 +36,7 @@ const uint64_t MAX_ADDRES = (address_t)-1;
 	for my codebase safety.
 */
 
-struct OPCODE_META
+struct INSTRUCTION_META
 {
 	//int instruction_size;	// there is only 1 instruction use 2 words - LWI
 
@@ -81,8 +82,8 @@ const std::map<std::string, int> REGISTERS
 
 // Fear me
 const std::string CRITICAL_ERROR_HEADER = R"(
-##========================##
-||        CRITICAL        ||
-||     ASSEMBLER ERROR    ||
-##========================##
+	##==============================##
+	||           CRITICAL           ||
+	||        ASSEMBLER ERROR       ||
+	##==============================##
 )";

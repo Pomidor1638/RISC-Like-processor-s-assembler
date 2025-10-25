@@ -23,7 +23,7 @@ std::string delete_comments(const std::string& line)
     return clean_line;
 }
 
-std::list<std::string> parse_opcode(const std::string& line)
+std::list<std::string> parse_instruction(const std::string& line)
 {
     std::list<std::string> tokens;
 
@@ -73,6 +73,44 @@ std::list<std::string> split_text_to_lines(const std::string& text, bool trim_li
     return lines;
 }
 
+
+bool is_intersect(int x, int x_size, int y, int y_size)
+{
+    int x0 = x;
+    int x1 = x + x_size - 1;
+
+    int y0 = y;
+    int y1 = y + y_size - 1;
+
+    return (x0 <= y1) && (y0 <= x1);
+}
+
+std::string readFile(const std::string& filename, bool& is_ok)
+{
+    std::ifstream file(filename, std::ios::binary);
+
+    is_ok = true;
+
+    if (!file.is_open())
+    {
+        is_ok = false;
+        return "";
+    }
+
+    // Get file size
+    file.seekg(0, std::ios::end);
+    size_t size = file.tellg();
+    file.seekg(0, std::ios::beg);
+
+    // Read entire file
+    std::string content(size, '\0');
+    file.read(&content[0], size);
+
+    file.close();
+
+    return content;
+}
+
 bool isLabel(const std::string& token) {
 
     if (token.empty()) 
@@ -99,12 +137,11 @@ bool isMacro(const std::string& token)
     return false;
 }
 
-
-bool isOpcode(const std::string& token, OPCODE_META& meta)
+bool isOpcode(const std::string& token, INSTRUCTION_META& meta)
 {
-    auto it = OPCODES.find(token);
+    auto it = INSTRUCTIONS.find(token);
 
-    if (it != OPCODES.end()) {
+    if (it != INSTRUCTIONS.end()) {
         meta = it->second;
         return true;
     }
@@ -127,7 +164,7 @@ bool isValue(const std::string& token, int& value)
         size_t pos = 0;
         value = std::stoi(token, &pos, 0);
 
-        return pos == token.length() && value >= 0 && value <= 0xFFFF;
+        return (pos == token.length()) && (value >= 0) && (value <= 0xFFFF);
     }
     catch (...) {
         return false;
@@ -141,7 +178,7 @@ bool isInstruction(std::string line)
 
     ss >> opcode;
 
-    OPCODE_META meta;
+    INSTRUCTION_META meta;
 
     return isOpcode(opcode, meta);
 }
@@ -152,12 +189,12 @@ bool isValidInstruction(std::string line)
     if (line[line.length() - 1] == ',')
         return false;
 
-    auto tokens = parse_opcode(line);
+    auto tokens = parse_instruction(line);
 
     if (tokens.empty())
         return false;
 
-    OPCODE_META meta;
+    INSTRUCTION_META meta;
 
     std::string opcode = tokens.front();
     tokens.pop_front();
@@ -226,10 +263,8 @@ bool isEntryPoint(const std::string& token, bool check_label)
         if (!isLabel(token))
             return false;
     }
-    
-    std::string name = token.substr(0, token.length() - 1);
 
-    return (name == ENTRY_POINT);
+    return (token == ENTRY_POINT);
 }
 
 
@@ -240,9 +275,9 @@ int getOpcodeSize(const std::string& opcode)
 
 instruction_t packInstruction(int opcode, int func, int rd, int rs, int rt)
 {
-    static const instruction_t OPCODE_MASK = (1 << OPCODE_SIZE) - 1;
-    static const instruction_t REG_MASK = (1 << REG_ADDRESS_SIZE) - 1;
-    static const instruction_t FUNC_MASK = (1 << FUNC_SIZE) - 1;
+    static const instruction_t OPCODE_MASK = (1 <<      OPCODE_SIZE) - 1;
+    static const instruction_t    REG_MASK = (1 << REG_ADDRESS_SIZE) - 1;
+    static const instruction_t   FUNC_MASK = (1 <<        FUNC_SIZE) - 1;
 
     // for additional safety
     opcode = opcode & OPCODE_MASK; 

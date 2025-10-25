@@ -8,21 +8,22 @@ bool Assembler::first_pass(const std::list<std::string>& lines)
 		std::cout << __func__ << std::endl;
 	}
 
-	line_num = 0;
+	line_num = 1;
 
 	bool result = true;
 
 
 	for (const auto& line : lines)
 	{
-
-
 		if (line.empty())
+		{
+			line_num++;
 			continue;
+		}
 
 		if (verbose)
 			std::cout << "Analyze line: "
-			<< line_num << "...";
+			<< line_num <<":\n\t" << line << std::endl << "...";
 
 
 		// YandereDev moment
@@ -57,7 +58,7 @@ bool Assembler::first_pass(const std::list<std::string>& lines)
 		{
 			if (verbose)
 				std::cout << "it's directive...\n";
-			if (1)
+			if (!analyzeDirective(line))
 			{
 				if (verbose)
 					std::cout << "fail" << std::endl;
@@ -83,6 +84,58 @@ bool Assembler::first_pass(const std::list<std::string>& lines)
 		result = false;
 	}
 
+	if (result)
+	{
+		address_t cur_address = 0;
+
+		for (auto& block : blocks)
+		{
+			block.base_address = cur_address;
+			cur_address += block.size;
+
+			if (cur_address >= ROM_SIZE)
+			{
+				addError(ErrorType::ROM_OVERFLOW, block.label, -1, true);
+				result = false;
+				break;
+			}
+		}
+
+
+		total_size = cur_address;
+
+		if (blocks.size() > 1)
+		{
+			for (auto it1 = blocks.begin(); it1 != blocks.end(); ++it1)
+			{
+				const Block& b1 = *it1;
+
+				if (b1.size <= 0)
+					continue;
+
+				for (auto it2 = std::next(it1); it2 != blocks.end(); ++it2)
+				{
+					const Block& b2 = *it2;
+
+					if (b2.size <= 0)
+						continue;
+
+					if (is_intersect(b1.base_address, b1.size, b2.base_address, b2.size))
+					{
+						std::stringstream ss;
+						ss << "  " << b1.label << ": 0x" << std::hex << b1.base_address
+							<< " - 0x" << b1.base_address + b1.size - 1 << std::endl
+							<< "  " << b2.label << ": 0x" << std::hex << b2.base_address
+							<< " - 0x" << b2.base_address + b2.size - 1;
+
+						addError(ErrorType::ASSEMBLE_BLOCKS_OVERLAP, ss.str(), -1, true);
+						result = false;
+					}
+				}
+			}
+		}
+	}
+
 	return result;
 }
 
@@ -96,7 +149,7 @@ bool Assembler::analyzeInstruction(const std::string& line)
 
 	if (!isValidInstruction(line))
 	{
-		addError(ErrorType::UNEXCEPTED_OPCODE, line, line_num);
+		addError(ErrorType::UNEXCEPTED_INSTRUCTION, line, line_num);
 		result = false;
 	}
 
@@ -107,7 +160,7 @@ bool Assembler::analyzeInstruction(const std::string& line)
 	}
 	else
 	{
-		addError(ErrorType::UNEXCEPTED_OPCODE_PLACEMENT, line, line_num);
+		addError(ErrorType::UNEXCEPTED_INSTRUCTION_PLACEMENT, line, line_num);
 		result = false;
 	}
 
@@ -117,6 +170,9 @@ bool Assembler::analyzeInstruction(const std::string& line)
 
 bool Assembler::analyzeDirective(const std::string line)
 {
+
+
+
 	return false;
 }
 
@@ -152,13 +208,13 @@ bool Assembler::analyzeLabel(const std::string& line)
 
 		has_entry_point = true;
 
-		blocks.push_front(AssembledBlock{}); // Entry point always first !!!
+		blocks.push_front(Block{}); // Entry point always first !!!
 		curBlock = &blocks.front();
 	}
 	else
 	{
 		// No, it's not
-		blocks.push_back(AssembledBlock{});
+		blocks.push_back(Block{});
 		curBlock = &blocks.back();
 	}
 

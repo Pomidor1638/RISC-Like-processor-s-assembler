@@ -25,7 +25,7 @@ enum AssemblerDirective {
 	ASM_STRING,
 	ASM_ORG,
 	ASM_ALIGN,
-	ASM_RESERVE,
+	ASM_LOAD,
 	ASM_EQU
 };
 
@@ -36,6 +36,6 @@ const std::map<std::string, AssemblerDirective> ASSEMBLER_DIRECTIVES = {
 	{".string",  ASM_STRING},
 	{".org",     ASM_ORG},
 	{".align",   ASM_ALIGN},
-	{".reserve", ASM_RESERVE},
+	{".load", ASM_LOAD},
 	{".equ",     ASM_EQU}
 };

@@ -26,39 +26,48 @@ const int     RD_SHIFT = 5;
 const int   FUNC_SHIFT = 0;
 
 // opcodes
-const int OPCODE_NOP = 0;
-const int OPCODE_R = 1;
-const int OPCODE_LWI = 2;
-const int OPCODE_HLT = 3;
 
+enum OPCODES
+{
+
+	OPCODE_NOP = 0,
+	OPCODE_LWI,
+	OPCODE_R,
+	OPCODE_HLT,
+
+	OPCODES_COUNT
+};
 
 // funcs
-const int FUNC_ADD = 0;
-const int FUNC_SUB = 1;
 
-const int FUNC_AND = 2;
-const int FUNC_ORR = 3;
-const int FUNC_NOT = 4;
-const int FUNC_TCP = 5;
-const int FUNC_SHL = 6;
-const int FUNC_SHR = 7;
+enum _FUNCS
+{
+	FUNC_ADD = 0,
+	FUNC_SUB,
 
-const int FUNC_LWD = 8;
-const int FUNC_SWD = 9;
+	FUNC_AND,
+	FUNC_ORR,
+	FUNC_NOT,
+	FUNC_TCP,
+	FUNC_SHL,
+	FUNC_SHR,
 
-const int FUNC_JPR = 10;
-const int FUNC_JRL = 11;
+	FUNC_LWD,
+	FUNC_SWD,
 
-const int FUNC_MOV = 12;
-const int FUNC_MVH = 13;
-const int FUNC_MVL = 14;
+	FUNC_JPR,
+	FUNC_JRL,
 
-const int FUNC_JNE = 15;
-const int FUNC_JEQ = 16;
-const int FUNC_JGZ = 17;
-const int FUNC_JLZ = 18;
-const int FUNC_JEZ = 19;
-const int FUNC_JNZ = 20;
-const int FUNC_JIR = 21;
+	FUNC_MOV,
+	FUNC_CCT,
 
-const int FUNC_NOP = (1 << FUNC_SIZE) - 1;
+	FUNC_JGZ,
+	FUNC_JLZ,
+	FUNC_JEZ,
+	FUNC_JNZ,
+	FUNC_JIR,
+
+	FUNCS_COUNT,
+
+	FUNC_NOP = (1 << FUNC_SIZE) - 1
+};
