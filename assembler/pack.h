@@ -20,9 +20,9 @@ const int REG_ADDRESS_SIZE = 3;
 const int        FUNC_SIZE = 5;
 
 const int OPCODE_SHIFT = 14;
-const int     RS_SHIFT = 11;
-const int     RT_SHIFT = 8;
-const int     RD_SHIFT = 5;
+const int     RD_SHIFT = 11;
+const int     RS_SHIFT = 8;
+const int     RT_SHIFT = 5;
 const int   FUNC_SHIFT = 0;
 
 // opcodes

@@ -5,7 +5,7 @@ bool Assembler::first_pass(const std::list<std::string>& lines)
 {
 	if (verbose)
 	{
-		std::cout << __func__ << std::endl;
+		std::cout << "********* " << __func__ << " *********" << std::endl;
 	}
 
 	line_num = 1;
@@ -180,7 +180,7 @@ bool Assembler::analyzeLabel(const std::string& line)
 {
 
 	if (verbose)
-		std::cout << __func__ << std::endl;
+		std::cout << "********* " << __func__ << " *********" << std::endl;
 
 	std::string label_name = line.substr(0, line.length() - 1);
 

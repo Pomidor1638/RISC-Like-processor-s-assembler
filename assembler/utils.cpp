@@ -85,41 +85,15 @@ bool is_intersect(int x, int x_size, int y, int y_size)
     return (x0 <= y1) && (y0 <= x1);
 }
 
-std::string readFile(const std::string& filename, bool& is_ok)
-{
-    std::ifstream file(filename, std::ios::binary);
-
-    is_ok = true;
-
-    if (!file.is_open())
-    {
-        is_ok = false;
-        return "";
-    }
-
-    // Get file size
-    file.seekg(0, std::ios::end);
-    size_t size = file.tellg();
-    file.seekg(0, std::ios::beg);
-
-    // Read entire file
-    std::string content(size, '\0');
-    file.read(&content[0], size);
-
-    file.close();
-
-    return content;
-}
-
 bool isLabel(const std::string& token) {
 
-    if (token.empty()) 
+    if (token.empty())
         return false;
 
-    if (token.back() != ':') 
+    if (token.back() != ':')
         return false;
 
-    if (token.find('.') == 0) 
+    if (token.find('.') == 0)
         return false;
 
     std::string name = token.substr(0, token.length() - 1);
@@ -152,12 +126,20 @@ bool isOpcode(const std::string& token, INSTRUCTION_META& meta)
 
 bool isRegister(const std::string& token, int& regnum)
 {
-    return REGISTERS.find(token) != REGISTERS.end();
+    auto it = REGISTERS.find(token);
+
+    regnum = 0;
+    if (it == REGISTERS.end())
+    {
+        return false;
+    }
+    regnum = it->second;
+    return true;
 }
 
 bool isValue(const std::string& token, int& value)
 {
-    if (token.empty()) 
+    if (token.empty())
         return false;
 
     try {
@@ -212,59 +194,73 @@ bool isValidInstruction(std::string line)
         std::string arg = tokens.front();
         tokens.pop_front();
 
-       if (opcode == "LWI" && i == 1)
-       {
-           int value;
-           if (
-               !
-               (
-                   isValue(arg, value) ||
-                   (isLabel(arg) + ':')
-               )
-           )
-               return false;
-       }
-       else
-       {
-           int regnum;
-           if (!isRegister(arg, regnum))
-           {
-               return false;
-           }
-       }
+        if (opcode == "LWI" && i == 1)
+        {
+            int value;
+            if (
+                !
+                (
+                    isValue(arg, value) ||
+                    (isLabel(arg) + ':')
+                    )
+                )
+                return false;
+        }
+        else
+        {
+            int regnum;
+            if (!isRegister(arg, regnum))
+            {
+                return false;
+            }
+        }
 
     }
 
     return true;
 }
 
-bool isValidIdentifier(const std::string& name) 
+bool isValidIdentifier(const std::string& name)
 {
-    if (name.empty()) 
+    if (name.empty())
         return false;
 
-    if (!std::isalpha(name[0]) && name[0] != '_') 
+    if (!std::isalpha(name[0]) && name[0] != '_')
         return false;
-    
+
 
     for (char c : name)
     {
-        if (!std::isalnum(c) && c != '_') 
+        if (!std::isalnum(c) && c != '_')
             return false;
     }
 
     return true;
 }
 
-bool isEntryPoint(const std::string& token, bool check_label) 
+bool isEntryPoint(const std::string& token, bool check_label)
 {
-    if (!check_label) 
+    if (!check_label)
     {
         if (!isLabel(token))
             return false;
     }
 
     return (token == ENTRY_POINT);
+}
+
+std::string instructionToBinaryString(instruction_t instruction)
+{
+    constexpr size_t BITS_COUNT = sizeof(instruction_t) * 8;
+    char buffer[BITS_COUNT + 1];
+
+    for (int i = BITS_COUNT - 1; i >= 0; --i)
+    {
+        buffer[BITS_COUNT - 1 - i] = (instruction & (1ULL << i)) ? '1' : '0';
+    }
+    buffer[BITS_COUNT] = '\0';
+
+    return std::string(buffer);
 }
 
 
@@ -275,22 +271,22 @@ int getOpcodeSize(const std::string& opcode)
 
 instruction_t packInstruction(int opcode, int func, int rd, int rs, int rt)
 {
-    static const instruction_t OPCODE_MASK = (1 <<      OPCODE_SIZE) - 1;
+    static const instruction_t OPCODE_MASK = (1 << OPCODE_SIZE) - 1;
     static const instruction_t    REG_MASK = (1 << REG_ADDRESS_SIZE) - 1;
-    static const instruction_t   FUNC_MASK = (1 <<        FUNC_SIZE) - 1;
+    static const instruction_t   FUNC_MASK = (1 << FUNC_SIZE) - 1;
 
     // for additional safety
-    opcode = opcode & OPCODE_MASK; 
-        rs =     rs &    REG_MASK;            
-        rt =     rt &    REG_MASK;            
-        rd =     rd &    REG_MASK;            
-      func =   func &   FUNC_MASK;       
+    opcode = opcode & OPCODE_MASK;
+        rs =     rs &    REG_MASK;
+        rt =     rt &    REG_MASK;
+        rd =     rd &    REG_MASK;
+      func =   func &   FUNC_MASK;
 
     instruction_t inst =
         (opcode << OPCODE_SHIFT) |
+        (    rd <<     RD_SHIFT) |
         (    rs <<     RS_SHIFT) |
         (    rt <<     RT_SHIFT) |
-        (    rd <<     RD_SHIFT) |
         (  func <<   FUNC_SHIFT);
 
     return inst;

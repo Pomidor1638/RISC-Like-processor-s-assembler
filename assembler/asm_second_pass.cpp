@@ -5,7 +5,7 @@ bool Assembler::second_pass(const std::list<std::string>& lines)
 
 	if (verbose)
 	{
-		std::cout << __func__ << std::endl;
+		std::cout << "********* " << __func__ << " *********" << std::endl;
 	}
 
 	line_num = 1;
@@ -86,7 +86,7 @@ bool Assembler::processOneArgInstruction(const INSTRUCTION_META& instr, const st
 		return false;
 	}
 	
-	switch (instr.opcode_code)
+	switch (instr.opcode_num)
 	{
 	case _JPR:
 	case _JIR:
@@ -157,7 +157,7 @@ bool Assembler::processTwoArgsInstruction(
 		return false;
 	}
 
-	switch (instr.opcode_code)
+	switch (instr.opcode_num)
 	{
 	case _LWI:
 		if (!is_imm)

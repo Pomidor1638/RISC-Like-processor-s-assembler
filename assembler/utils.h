@@ -17,7 +17,7 @@ std::list<std::string> split_text_to_lines(const std::string& text, bool trim_li
 
 bool is_intersect(int x, int x_size, int y, int y_size);
 
-instruction_t packInstruction(int opcode, int func = FUNC_NOP, int rd, int rs, int rt);
+instruction_t packInstruction(int opcode, int func, int rd, int rs, int rt);
 
 
 bool isLabel(const std::string& token);
@@ -32,6 +32,5 @@ bool isValidInstruction(std::string line);
 bool isValidIdentifier(const std::string& name);
 bool isEntryPoint(const std::string& token, bool check_label = true);
 
+std::string instructionToBinaryString(instruction_t instruction);
 int getOpcodeSize(const std::string& opcode);
-
-std::string readFile(const std::string& filename, bool& error);

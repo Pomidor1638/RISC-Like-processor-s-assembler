@@ -21,7 +21,6 @@ bool Assembler::is_ok()
 	return errors.empty();
 }
 
-
 void Assembler::clear()
 {
 	blocks.clear();
@@ -36,6 +35,7 @@ std::string Assembler::getError() const
 {
 	std::list<Error> crit_errs{};
 	std::stringstream ss;
+
 	for (const auto& x : errors)
 	{
 		if (x.critical)
@@ -44,15 +44,35 @@ std::string Assembler::getError() const
 		}
 		else
 		{
-			ss << "Error at line: " << x.line << getStrByErrorType(x.type) << x.contents << std::endl;
+			if (x.line != -1)
+			{
+				ss << "Error at line " << x.line << ": ";
+			}
+			else
+			{
+				ss << "Error: ";
+			}
+
+			ss << getStrByErrorType(x.type)
+				<< " - " << x.contents << std::endl;
 		}
 	}
 
-
 	for (const auto& x : crit_errs)
 	{
+
 		ss << CRITICAL_ERROR_HEADER;
-		ss << "Error at line: " << x.line << getStrByErrorType(x.type) << x.contents << std::endl;
+		if (x.line != -1)
+		{
+			ss << "Critical error at line " << x.line << ": ";
+		}
+		else
+		{
+			ss << "Critical error: ";
+		}
+
+		ss  << getStrByErrorType(x.type)
+			<< " - " << x.contents << std::endl;
 	}
 
 	return ss.str();
@@ -60,32 +80,55 @@ std::string Assembler::getError() const
 
 void Assembler::addError(ErrorType type, std::string contents, int line, bool critical)
 {
-	Error err = { type, contents, -1 , critical };
+	Error err = { type, contents, line, critical };
+
 	if (verbose)
 	{
 		if (critical)
-			std::cerr << CRITICAL_ERROR_HEADER << std::endl;
-		std::cerr << "Error at line: " << line << ' ' << getStrByErrorType(type) << contents << std::endl;
+			std::cerr << CRITICAL_ERROR_HEADER;
+
+		if (line != -1)
+		{
+			std::cerr << "Error at line " << line << ": ";
+		}
+		else
+		{
+			std::cerr << "Error: ";
+		}
+
+		std::cerr << getStrByErrorType(type) << " - " << contents << std::endl;
 	}
+
 	errors.push_back(err);
 }
 
 std::string Assembler::getStrByErrorType(ErrorType t) const
 {
-	static const std::map<ErrorType, std::string> error_messages = 
+	static const std::map<ErrorType, std::string> error_messages =
 	{
-		{ ErrorType::UNEXCEPTED_INSTRUCTION, "Unexpected opcode"			  },
-		{ ErrorType::UNEXCEPTED_ARGS_NUM   , "Unexpected number of arguments" },
-		{ ErrorType::UNEXCEPTED_REGISTER   , "Unexpected register"			  },
-		{ ErrorType::UNEXCEPTED_DIRECTIVE  , "Unexpected directive"			  },
-		{ ErrorType::UNEXCEPTED_MACRO      , "Unexpected macro"				  },
-		{ ErrorType::UNEXCEPTED_TOKEN      , "Unexpected token"				  },
-		{ ErrorType::CANNOT_OPEN_FILE      , "Cannot open file"				  },
-		{ ErrorType::CANNOT_READ_FILE      , "Cannot read file"				  },
-		{ ErrorType::CANNOT_WRITE_FILE	   , "Cannot write file"			  },
-		{ ErrorType::MULTIPLE_DEFINITIONS  , "Multiple definitions"			  },
-		{ ErrorType::MULTIPLE_ARGUMENTS	   , "Multiple arguments"			  },
-		{ ErrorType::NO_ENTRY_POINT		   , "No entry point found"			  }
+		{ ErrorType::UNEXCEPTED_INSTRUCTION, "Unexpected opcode" },
+		{ ErrorType::UNEXCEPTED_OPCODE, "Unexpected opcode" },
+		{ ErrorType::UNEXCEPTED_INSTRUCTION_PLACEMENT, "Unexpected instruction placement" },
+		{ ErrorType::UNEXCEPTED_LABEL, "Unexpected label" },
+		{ ErrorType::UNEXCEPTED_ARGS_NUM, "Unexpected number of arguments" },
+		{ ErrorType::UNEXCEPTED_REGISTER, "Unexpected register" },
+		{ ErrorType::UNEXCEPTED_ARGUMENT, "Unexpected argument" },
+		{ ErrorType::UNEXCEPTED_IMM_VALUE, "Unexpected immediate value" },
+		{ ErrorType::UNEXCEPTED_DIRECTIVE, "Unexpected directive" },
+		{ ErrorType::UNEXCEPTED_MACRO, "Unexpected macro" },
+		{ ErrorType::UNEXCEPTED_TOKEN, "Unexpected token" },
+
+		{ ErrorType::CANNOT_OPEN_FILE, "Cannot open file" },
+		{ ErrorType::CANNOT_READ_FILE, "Cannot read file" },
+		{ ErrorType::CANNOT_WRITE_FILE, "Cannot write file" },
+
+		{ ErrorType::MULTIPLE_DEFINITIONS, "Multiple definitions" },
+		{ ErrorType::MULTIPLE_UNEXCEPTED_ARGS, "Multiple unexcepted arguments" },
+
+		{ ErrorType::ASSEMBLE_BLOCKS_OVERLAP, "Blocks overlap" },
+
+		{ ErrorType::ROM_OVERFLOW, "ROM overflow" },
+		{ ErrorType::NO_ENTRY_POINT, "No entry point found" }
 	};
 
 	auto it = error_messages.find(t);
@@ -95,29 +138,83 @@ std::string Assembler::getStrByErrorType(ErrorType t) const
 	return "What the fuck is this ErrorType?";
 }
 
-
-
-bool Assembler::writeFile(std::string output_file)
+std::string Assembler::readFile(const std::string& filename)
 {
-	if (!is_ok())
+
+	std::cout << "********* " << __func__ << " *********" << std::endl;
+
+	std::ifstream file(filename, std::ios::binary);
+
+	if (!file.is_open())
 	{
-		return false;
+		if (verbose)
+		{
+			std::cout << "Cannot open file: " << filename << std::endl;
+		}
+		addError(ErrorType::CANNOT_OPEN_FILE, filename, -1);
+		return "";
+	}
+
+	file.seekg(0, std::ios::end);
+	size_t size = file.tellg();
+
+	if (file.fail())
+	{
+		if (verbose)
+		{
+			std::cout << "Cannot determine file size: " << filename << std::endl;
+		}
+		addError(ErrorType::CANNOT_READ_FILE, filename, -1);
+		return "";
+	}
+
+	file.seekg(0, std::ios::beg);
+	std::string content(size, '\0');
+	file.read(&content[0], size);
+
+	if (!file.good() && file.gcount() != static_cast<std::streamsize>(size))
+	{
+		if (verbose)
+		{
+			std::cout << "Error reading file: " << filename << std::endl;
+		}
+		addError(ErrorType::CANNOT_READ_FILE, filename, -1);
+		return "";
 	}
 
 	if (verbose)
 	{
-		std::cout << __func__ << std::endl;
-		std::cout << "Trying open ..." << output_file;
+		std::cout << "Successfully read file: " << filename << " (" << size << " bytes)" << std::endl;
 	}
 
+	file.close();
+	return content;
+}
 
-	std::ofstream file(output_file, std::fstream::binary);
+
+bool Assembler::writeFile(const std::vector<instruction_t>& instructions, std::string output_file, bool verilog_style)
+{
+	if (verbose)
+	{
+		std::cout << "********* " << __func__ << " *********" << std::endl;
+		std::cout << "Trying to open: " << output_file << "... ";
+	}
+
+	std::ofstream file;
+
+	if (verilog_style)
+	{
+		file.open(output_file);
+	}
+	else
+	{
+		file.open(output_file, std::ios::binary);
+	}
 
 	if (!file.is_open())
 	{
-
 		if (verbose)
-			std::cout << "Fails" << std::endl;
+			std::cout << "Fail" << std::endl;
 
 		addError(
 			ErrorType::CANNOT_OPEN_FILE,
@@ -127,17 +224,33 @@ bool Assembler::writeFile(std::string output_file)
 		return false;
 	}
 
-
 	if (verbose)
 		std::cout << "Ok" << std::endl;
 
-	//const size_t size = assembled_instructions.size() * sizeof(instruction_t);
-	//file.write((char*)assembled_instructions.data(), size);
+	if (verilog_style)
+	{
+		if (verbose)
+			std::cout << "Writing Verilog format (" << instructions.size() << " instructions)... ";
 
+		for (const auto& instruction : instructions)
+		{
+			file << instructionToBinaryString(instruction) << std::endl;
+		}
+	}
+	else
+	{
+		if (verbose)
+			std::cout << "Writing binary format (" << instructions.size() * sizeof(instruction_t) << " bytes)... ";
 
+		file.write(reinterpret_cast<const char*>(instructions.data()),
+			instructions.size() * sizeof(instruction_t));
+	}
 
 	if (!file.good())
 	{
+		if (verbose)
+			std::cout << "Fail" << std::endl;
+
 		addError(
 			ErrorType::CANNOT_WRITE_FILE,
 			output_file,
@@ -146,40 +259,16 @@ bool Assembler::writeFile(std::string output_file)
 		return false;
 	}
 
-	return true;
+	if (verbose)
+		std::cout << "Ok" << std::endl;
 
+	file.close();
+	return true;
 }
 
-std::vector<byte> Assembler::assemble_blocks()
+std::vector<instruction_t> Assembler::assemble_blocks()
 {
-	// Проверяем переполнение ROM
-	if (total_size > ROM_SIZE)
-	{
-		addError(ErrorType::ROM_OVERFLOW, "", -1, true);
-		return {};
-	}
-
-	// Проверяем наложение блоков (должна быть уже проверена в first_pass)
-	// Но на всякий случай можно добавить быструю проверку
-	for (auto it1 = blocks.begin(); it1 != blocks.end(); ++it1)
-	{
-		for (auto it2 = std::next(it1); it2 != blocks.end(); ++it2)
-		{
-			if (is_intersect(it1->base_address, it1->size, it2->base_address, it2->size))
-			{
-				std::stringstream ss;
-				ss << "  " << it1->label << ": 0x" << std::hex << it1->base_address
-					<< " - 0x" << it1->base_address + it1->size - 1 << std::endl
-					<< "  " << it2->label << ": 0x" << std::hex << it2->base_address
-					<< " - 0x" << it2->base_address + it2->size - 1;
-
-				addError(ErrorType::ASSEMBLE_BLOCKS_OVERLAP, ss.str(), -1, true);
-				return {};
-			}
-		}
-	}
-
-	std::vector<byte> result(total_size, 0x00);
+	std::vector<instruction_t> result(total_size, 0);
 
 	for (const auto& block : blocks)
 	{
@@ -188,7 +277,6 @@ std::vector<byte> Assembler::assemble_blocks()
 
 		int start_pos = block.base_address;
 
-		// Проверяем, что блок помещается в результат
 		if (start_pos + block.size > total_size)
 		{
 			std::stringstream ss;
@@ -197,30 +285,21 @@ std::vector<byte> Assembler::assemble_blocks()
 				<< "  Size: 0x" << block.size << std::endl
 				<< "  Total size: 0x" << total_size;
 
-			addError(ErrorType::ASSEMBLE_BLOCKS_OVERLAP, ss.str(), -1, true);
+			addError(ErrorType::ASSEMBLE_INTERNAL_ERROR, ss.str(), -1, true);
 			return {};
 		}
 
-		// Преобразуем инструкции в байты
-		if constexpr (std::is_same_v<instruction_t, byte>) {
-			std::copy(block.assembled_instructions.begin(),
-				block.assembled_instructions.end(),
-				result.begin() + start_pos);
-		}
-		else {
-			for (size_t i = 0; i < block.assembled_instructions.size(); ++i) {
-				instruction_t instr = block.assembled_instructions[i];
-				const byte* bytes = reinterpret_cast<const byte*>(&instr);
-				std::copy(bytes, bytes + sizeof(instruction_t),
-					result.begin() + start_pos + i * sizeof(instruction_t));
-			}
-		}
+		std::copy(
+			block.assembled_instructions.begin(),
+			block.assembled_instructions.end(),
+			result.begin() + start_pos
+		);	
 	}
 
 	return result;
 }
 
-std::vector<byte> Assembler::assemble(std::string source_code, int rom_size, bool v)
+std::vector<instruction_t> Assembler::assemble(std::string source_code, int rom_size, bool v)
 {
 	clear();
 	verbose = v;

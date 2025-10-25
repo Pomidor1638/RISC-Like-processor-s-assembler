@@ -7,9 +7,10 @@ class Assembler
 {
 public:
 
-	std::vector<byte> assemble(std::string source_code, int rom_size, bool v = false);
+	std::vector<instruction_t> assemble(std::string source_code, int rom_size, bool v = false);
 
-	bool writeFile(std::string output_file);
+	bool writeFile(const std::vector<instruction_t>& data, std::string output_file, bool verilog_style = false);
+	std::string readFile(const std::string& filename);
 
 	std::string getError() const;
 
@@ -39,9 +40,10 @@ protected:
 		CANNOT_WRITE_FILE,
 
 		MULTIPLE_DEFINITIONS,
-		MULTIPLE_ARGUMENTS,
+		MULTIPLE_UNEXCEPTED_ARGS,
 
 		ASSEMBLE_BLOCKS_OVERLAP,
+		ASSEMBLE_INTERNAL_ERROR,
 
 		ROM_OVERFLOW,
 		NO_ENTRY_POINT,
@@ -80,7 +82,7 @@ protected:
 	int ROM_SIZE;
 
 	int total_size;
-	std::vector<byte> assemble_blocks();
+	std::vector<instruction_t> assemble_blocks();
 
 
 	void addError(ErrorType type, std::string contents, int line, bool critical = false);
@@ -90,32 +92,32 @@ protected:
 
 	bool first_pass(const std::list<std::string>& lines);
 
-		bool analyzeInstruction(const std::string& line);
-		bool analyzeLabel(const std::string& line);
-		bool analyzeDirective(const std::string line);
+	bool analyzeInstruction(const std::string& line);
+	bool analyzeLabel(const std::string& line);
+	bool analyzeDirective(const std::string line);
 
 	// for second pass
 	bool second_pass(const std::list<std::string>& lines);
 
-		bool processInstruction(const std::string& line);
-			bool processNoArgsInstruction(const INSTRUCTION_META& instr);
-			bool processOneArgInstruction(const INSTRUCTION_META& instr, const std::string& arg1);
-			bool processTwoArgsInstruction(
-				const INSTRUCTION_META& instr,
-				const std::string& arg1,
-				const std::string& arg2
-			);
-			bool processThreeArgsInstruction(
-				const INSTRUCTION_META& instr,
-				const std::string& arg1,
-				const std::string& arg2,
-				const std::string& arg3
-			);
+	bool processInstruction(const std::string& line);
+	bool processNoArgsInstruction(const INSTRUCTION_META& instr);
+	bool processOneArgInstruction(const INSTRUCTION_META& instr, const std::string& arg1);
+	bool processTwoArgsInstruction(
+		const INSTRUCTION_META& instr,
+		const std::string& arg1,
+		const std::string& arg2
+	);
+	bool processThreeArgsInstruction(
+		const INSTRUCTION_META& instr,
+		const std::string& arg1,
+		const std::string& arg2,
+		const std::string& arg3
+	);
 
-		bool processLabel(const std::string& line);
+	bool processLabel(const std::string& line);
 
 
-	void processDirective(const std::string line);
+	//void processDirective(const std::string line);
 
 public:
 
