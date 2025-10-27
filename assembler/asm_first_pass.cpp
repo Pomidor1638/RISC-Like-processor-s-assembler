@@ -1,5 +1,5 @@
-#include "assembler.h"
-#include "utils.h"
+#include "assembler.hpp"
+#include "utils.hpp"
 
 bool Assembler::first_pass(const std::list<std::string>& lines)
 {

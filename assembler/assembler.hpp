@@ -1,7 +1,7 @@
 #pragma once
 
-#include "common.h"
-#include "utils.h"
+#include "common.hpp"
+#include "utils.hpp"
 
 class Assembler
 {

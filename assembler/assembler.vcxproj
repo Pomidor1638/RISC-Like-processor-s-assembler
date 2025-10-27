@@ -132,13 +132,13 @@
     <ClCompile Include="utils.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="assembler.h" />
-    <ClInclude Include="common.h" />
-    <ClInclude Include="directives.h" />
-    <ClInclude Include="opcodes.h" />
-    <ClInclude Include="pack.h" />
-    <ClInclude Include="preprocess.h" />
-    <ClInclude Include="utils.h" />
+    <ClInclude Include="assembler.hpp" />
+    <ClInclude Include="common.hpp" />
+    <ClInclude Include="directives.hpp" />
+    <ClInclude Include="opcodes.hpp" />
+    <ClInclude Include="pack.hpp" />
+    <ClInclude Include="preprocess.hpp" />
+    <ClInclude Include="utils.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="prog.asm" />

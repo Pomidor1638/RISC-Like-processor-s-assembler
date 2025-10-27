@@ -1,7 +1,7 @@
 #include <iostream>
 
 
-#include "assembler.h"
+#include "assembler.hpp"
 
 
 int main(int argc, char* argv[]) {

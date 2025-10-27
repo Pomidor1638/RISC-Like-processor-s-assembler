@@ -1,4 +1,4 @@
-#include "assembler.h"
+#include "assembler.hpp"
 
 bool Assembler::second_pass(const std::list<std::string>& lines)
 {

@@ -1,5 +1,5 @@
-#include "assembler.h"
-#include "utils.h"
+#include "assembler.hpp"
+#include "utils.hpp"
 
 Assembler::Assembler()
 	: blocks{}
