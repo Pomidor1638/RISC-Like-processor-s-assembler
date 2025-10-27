@@ -63,7 +63,6 @@ protected:
 	{
 		// for first pass
 		std::string label;
-		int origin;
 		int size;
 
 		// for second pass
