@@ -3,15 +3,10 @@
 
 bool Assembler::first_pass(const std::list<std::string>& lines)
 {
-	if (verbose)
-	{
-		std::cout << "********* " << __func__ << " *********" << std::endl;
-	}
+	qprintf(verbose, 2, __func__);
 
 	line_num = 1;
-
 	bool result = true;
-
 
 	for (const auto& line : lines)
 	{
@@ -21,66 +16,32 @@ bool Assembler::first_pass(const std::list<std::string>& lines)
 			continue;
 		}
 
-		if (verbose)
-			std::cout << "Analyze line: "
-			<< line_num <<":\n\t" << line << std::endl << "...";
-
-
-		// YandereDev moment
-
-		if (isLabel(line))
+		if (isLabel(line, false))
 		{
-			if (verbose)
-				std::cout << "it's label..." << std::endl;
 			if (!analyzeLabel(line))
-			{
-				if (verbose)
-					std::cout << "fail" << std::endl;
 				result = false;
-			}
-			else if (verbose)
-				std::cout << "success" << std::endl;
 		}
 		else if (isInstruction(line))
 		{
-			if (verbose)
-				std::cout << "it's instruction...\n";
 			if (!analyzeInstruction(line))
-			{
-				if (verbose)
-					std::cout << "fail" << std::endl;
 				result = false;
-			}
-			else if (verbose)
-				std::cout << "success" << std::endl;
 		}
 		else if (isDirective(line))
 		{
-			if (verbose)
-				std::cout << "it's directive...\n";
 			if (!analyzeDirective(line))
-			{
-				if (verbose)
-					std::cout << "fail" << std::endl;
 				result = false;
-			}
-			else if (verbose)
-				std::cout << "success" << std::endl;
 		}
 		else
 		{
-			if (verbose)
-				std::cout << "what the fuck is this ?" << std::endl;
-			addError(ErrorType::UNEXCEPTED_TOKEN, line, line_num);
+			addError(ErrorType::UNEXCEPTED_TOKEN, " What the fuck is this ? " + line, line_num);
 			result = false;
 		}
-
 		line_num++;
 	}
 
 	if (!has_entry_point)
 	{
-		addError(ErrorType::NO_ENTRY_POINT, "", -1, true);
+		addError(ErrorType::NO_ENTRY_POINT, {}, -1, true);
 		result = false;
 	}
 
@@ -141,6 +102,8 @@ bool Assembler::first_pass(const std::list<std::string>& lines)
 
 bool Assembler::analyzeInstruction(const std::string& line)
 {
+	qprintf(verbose, 3, "%s\n%s", __func__, line.c_str());
+
 	bool result = true;
 	std::stringstream ss(line);
 	std::string opcode;
@@ -168,46 +131,81 @@ bool Assembler::analyzeInstruction(const std::string& line)
 }
 
 
+bool Assembler::analyzeDirectiveString(const std::string line)
+{
+	qprintf(verbose, 4, __func__);
+	std::cout << "skip" << std::endl;
+	return false;
+}
+bool Assembler::analyzeDirectiveData(const std::string line)
+{
+	qprintf(verbose, 4, __func__);
+	std::cout << "skip" << std::endl;
+	return false;
+}
+bool Assembler::analyzeDirectiveLoadFile(const std::string line)
+{
+	qprintf(verbose, 4, __func__);
+	std::cout << "skip" << std::endl;
+	return false;
+}
+
 bool Assembler::analyzeDirective(const std::string line)
 {
+	qprintf(verbose, 3, "%s\n%s", __func__, line.c_str());
 
+	std::stringstream ss(line);
+	std::string str_directive;
 
+	auto it = ASSEMBLER_DIRECTIVES.find(str_directive);
 
-	return false;
+	if (it == ASSEMBLER_DIRECTIVES.end())
+	{
+		addError(ErrorType::UNEXCEPTED_DIRECTIVE, line, line_num);
+		return false;
+	}
+
+	ss >> str_directive;
+
+	AssemblerDirective dir = ASSEMBLER_DIRECTIVES.at(str_directive);
+
+	switch (dir)
+	{
+	case ASM_DATA:
+		analyzeDirectiveData(line);
+	case ASM_STRING:
+		analyzeDirectiveString(line);
+	case ASM_LOAD:
+		analyzeDirectiveLoadFile(line);
+
+	default:
+		addError(ErrorType::UNEXCEPTED_DIRECTIVE, line, line_num);
+		return false;
+	}
+	
+
+	return true;
 }
 
 bool Assembler::analyzeLabel(const std::string& line)
 {
-
-	if (verbose)
-		std::cout << "********* " << __func__ << " *********" << std::endl;
+	qprintf(verbose, 3, "%s\n%s", __func__, line.c_str());
 
 	std::string label_name = line.substr(0, line.length() - 1);
-
 	curBlock = nullptr;
-
-	// Trying ti find duplicate 
 
 	if (block_by_label.find(label_name) != block_by_label.end())
 	{
-
-		if (verbose)
-			std::cout << "Found duplicate label " << label_name << std::endl;
-
+		qprintf(verbose, 0, "Found duplicate label %s\n", label_name.c_str());
 		addError(ErrorType::MULTIPLE_DEFINITIONS, line, line_num, true);
 		return false;
 	}
 
 	// Is it ENTRY_POINT ?
-
 	if (isEntryPoint(label_name))
 	{
-
-		if (verbose)
-			std::cout << "Found entry point " << ENTRY_POINT << std::endl;
-
+		qprintf(verbose, 0, "Found entry point START");
 		has_entry_point = true;
-
 		blocks.push_front(Block{}); // Entry point always first !!!
 		curBlock = &blocks.front();
 	}

@@ -29,6 +29,9 @@ void Assembler::clear()
 	errors.clear();
 	has_entry_point = false;
 	line_num = 0;
+	verbose = 0;
+	ROM_SIZE = 0;
+	total_size = 0;
 }
 
 std::string Assembler::getError() const
@@ -36,47 +39,53 @@ std::string Assembler::getError() const
 	std::list<Error> crit_errs{};
 	std::stringstream ss;
 
+	int crit_errorsnum = 0;
+	int errorsnum = 0;
+
+	// Проходим по всем ошибкам
 	for (const auto& x : errors)
 	{
 		if (x.critical)
 		{
 			crit_errs.push_back(x);
+			crit_errorsnum++;
 		}
 		else
 		{
 			if (x.line != -1)
-			{
 				ss << "Error at line " << x.line << ": ";
-			}
 			else
-			{
 				ss << "Error: ";
-			}
 
 			ss << getStrByErrorType(x.type)
 				<< " - " << x.contents << std::endl;
+
+			errorsnum++;
 		}
 	}
 
 	for (const auto& x : crit_errs)
 	{
-
 		ss << CRITICAL_ERROR_HEADER;
 		if (x.line != -1)
-		{
 			ss << "Critical error at line " << x.line << ": ";
-		}
 		else
-		{
 			ss << "Critical error: ";
-		}
 
-		ss  << getStrByErrorType(x.type)
+		ss << getStrByErrorType(x.type)
 			<< " - " << x.contents << std::endl;
 	}
 
+	ss << std::endl
+		<< "==================== ERROR SUMMARY ====================" << std::endl
+		<< "Total errors: " << (errorsnum + crit_errorsnum) << std::endl
+		<< "  - Critical errors: " << crit_errorsnum << std::endl
+		<< "  - Normal errors  : " << errorsnum << std::endl
+		<< "=======================================================" << std::endl;
+
 	return ss.str();
 }
+
 
 void Assembler::addError(ErrorType type, std::string contents, int line, bool critical)
 {
@@ -96,10 +105,16 @@ void Assembler::addError(ErrorType type, std::string contents, int line, bool cr
 			std::cerr << "Error: ";
 		}
 
-		std::cerr << getStrByErrorType(type) << " - " << contents << std::endl;
+		std::string str_error = getStrByErrorType(type);
+
+		std::cerr << str_error << " - " << contents << std::endl;
 	}
 
+
+
 	errors.push_back(err);
+
+
 }
 
 std::string Assembler::getStrByErrorType(ErrorType t) const
@@ -140,19 +155,14 @@ std::string Assembler::getStrByErrorType(ErrorType t) const
 
 std::string Assembler::readFile(const std::string& filename)
 {
-
-	std::cout << "********* " << __func__ << " *********" << std::endl;
+	qprintf(verbose, 1, __func__);
 
 	std::ifstream file(filename, std::ios::binary);
 
 	if (!file.is_open())
 	{
-		if (verbose)
-		{
-			std::cout << "Cannot open file: " << filename << std::endl;
-		}
 		addError(ErrorType::CANNOT_OPEN_FILE, filename, -1);
-		return "";
+		return {};
 	}
 
 	file.seekg(0, std::ios::end);
@@ -160,12 +170,8 @@ std::string Assembler::readFile(const std::string& filename)
 
 	if (file.fail())
 	{
-		if (verbose)
-		{
-			std::cout << "Cannot determine file size: " << filename << std::endl;
-		}
-		addError(ErrorType::CANNOT_READ_FILE, filename, -1);
-		return "";
+		addError(ErrorType::CANNOT_READ_FILE, "\nCannot determine file size: " + filename, -1);
+		return {};
 	}
 
 	file.seekg(0, std::ios::beg);
@@ -174,18 +180,11 @@ std::string Assembler::readFile(const std::string& filename)
 
 	if (!file.good() && file.gcount() != static_cast<std::streamsize>(size))
 	{
-		if (verbose)
-		{
-			std::cout << "Error reading file: " << filename << std::endl;
-		}
 		addError(ErrorType::CANNOT_READ_FILE, filename, -1);
-		return "";
+		return {};
 	}
 
-	if (verbose)
-	{
-		std::cout << "Successfully read file: " << filename << " (" << size << " bytes)" << std::endl;
-	}
+	qprintf(verbose, 0, "Successfully read file: %s (%i)", filename.c_str(), size);
 
 	file.close();
 	return content;
@@ -194,11 +193,7 @@ std::string Assembler::readFile(const std::string& filename)
 
 bool Assembler::writeFile(const std::vector<instruction_t>& instructions, std::string output_file, bool verilog_style)
 {
-	if (verbose)
-	{
-		std::cout << "********* " << __func__ << " *********" << std::endl;
-		std::cout << "Trying to open: " << output_file << "... ";
-	}
+	qprintf(verbose, 1, "%s\n%s", __func__, output_file.c_str());
 
 	std::ofstream file;
 
@@ -299,11 +294,13 @@ std::vector<instruction_t> Assembler::assemble_blocks()
 	return result;
 }
 
-std::vector<instruction_t> Assembler::assemble(std::string source_code, int rom_size, bool v)
+std::vector<instruction_t> Assembler::assemble(std::string source_code, int rom_size, bool verbose)
 {
 	clear();
-	verbose = v;
+	this->verbose = verbose;
 	ROM_SIZE = rom_size;
+
+	qprintf(verbose, 1, __func__);
 
 	const std::list<std::string> lines = split_text_to_lines(source_code, true);
 

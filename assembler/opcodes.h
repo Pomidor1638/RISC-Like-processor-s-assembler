@@ -3,120 +3,184 @@
 // There are no Immediate jumps
 // There are only one Immediate operation - LWI
 
-enum ENUM_INSTRUCTIONS
-{
-    _NOP = 0,
-    _HLT,
-
-    _JPR,
-    _JIR,
-
-    _LWI,
-    _TCP,
-    _SHL,
-    _SHR,
-    _LWD,
-    _SWD,
-    _NOT,
-    _MOV, 
-    _JRL,
-    _JGZ,
-    _JLZ,
-    _JEZ,
-    _JNZ,
-
-    _CCT,
-    _ADD,
-    _SUB,
-    _AND,
-    _ORR,
-};
 
 const std::map<std::string, INSTRUCTION_META> INSTRUCTIONS
 {
     // No func opcodes
-    { "NOP", {0, _NOP, OPCODE_NOP, FUNC_NOP} },
-    { "LWI", {2, _LWI, OPCODE_LWI, FUNC_NOP} },
-    { "HLT", {0, _HLT, OPCODE_HLT, FUNC_NOP} },
+    { "NOP", {0, OPCODE_NOP} },
+    { "HLT", {0, OPCODE_HLT} },
 
-    // Arithmetic
-    { "ADD", {3, _ADD, OPCODE_R, FUNC_ADD} },
-    { "SUB", {3, _SUB, OPCODE_R, FUNC_SUB} },
-    { "TCP", {2, _TCP, OPCODE_R, FUNC_TCP} },
+    { "JMP", {1, OPCODE_JMP} },
+    { "JPR", {1, OPCODE_JPR} },
+    { "JIR", {1, OPCODE_JIR} },
+    { "JPC", {1, OPCODE_JPC} },
+    { "JOV", {1, OPCODE_JOV} },
+    { "JZD", {1, OPCODE_JZD} },
 
-    // Logical
-    { "AND", {3, _AND, OPCODE_R, FUNC_AND} },
-    { "ORR", {3, _ORR, OPCODE_R, FUNC_ORR} },
-    { "NOT", {2, _NOT, OPCODE_R, FUNC_NOT} },
+    { "INC", {2, OPCODE_INC} },
+    { "DEC", {2, OPCODE_DEC} },
+    { "LWI", {2, OPCODE_LWI} },
+    { "TCP", {2, OPCODE_TCP} },
+    { "LWD", {2, OPCODE_LWD} },
+    { "SWD", {2, OPCODE_SWD} },
+    { "NOT", {2, OPCODE_NOT} },
+    { "JRL", {2, OPCODE_JRL} },
+    { "JGZ", {2, OPCODE_JGZ} },
+    { "JLZ", {2, OPCODE_JLZ} },
+    { "JEZ", {2, OPCODE_JEZ} },
+    { "JNZ", {2, OPCODE_JNZ} },
+    { "MOV", {2, OPCODE_MOV} },
 
-    // Shifts
-    { "SHL", {2, _SHL, OPCODE_R, FUNC_SHL} },
-    { "SHR", {2, _SHR, OPCODE_R, FUNC_SHR} },
-
-    // Memory
-    { "LWD", {2, _LWD, OPCODE_R, FUNC_LWD} },
-    { "SWD", {2, _SWD, OPCODE_R, FUNC_SWD} },
-
-    // Move
-    { "MOV", {2, _MOV, OPCODE_R, FUNC_MOV} },
-
-    { "ССT", {2, _CCT, OPCODE_R, FUNC_CCT} },
-
-    // Non-condition jumps
-    { "JPR", {1, _JPR, OPCODE_R, FUNC_JPR} },
-    { "JRL", {2, _JRL, OPCODE_R, FUNC_JRL} },
-
-    // Condition-depend jumps
-    { "JGZ", {2, _JGZ, OPCODE_R, FUNC_JGZ} },
-    { "JLZ", {2, _JLZ, OPCODE_R, FUNC_JLZ} },
-    { "JEZ", {2, _JEZ, OPCODE_R, FUNC_JEZ} },
-    { "JNZ", {2, _JNZ, OPCODE_R, FUNC_JNZ} },
-    { "JIR", {1, _JIR, OPCODE_R, FUNC_JIR} },
+    { "ADD", {3, OPCODE_ADD} },
+    { "SUB", {3, OPCODE_SUB} },
+    { "ADC", {3, OPCODE_ADC} },
+    { "SBB", {3, OPCODE_SBB} },
+    { "MUL", {3, OPCODE_MUL} },
+    { "DIV", {3, OPCODE_DIV} },
+    { "UML", {3, OPCODE_UML} },
+    { "UDV", {3, OPCODE_UDV} },
+    { "MHL", {3, OPCODE_MHL} },
+    { "MLH", {3, OPCODE_MLH} },
+    { "MHH", {3, OPCODE_MHH} },
+    { "MLL", {3, OPCODE_MLL} },
+    { "SLL", {3, OPCODE_SLL} },
+    { "SRL", {3, OPCODE_SRL} },
+    { "SRA", {3, OPCODE_SRA} },
+    { "AND", {3, OPCODE_AND} },
+    { "ORR", {3, OPCODE_ORR} },
 };
 
-// Процессор: 16-битный RISC с 8 регистрами
-// Форматы инструкций:
-// R-type: [opcode:2][rs:3][rt:3][rd:3][func:5]
+// ============================================================================
+// Processor: 16-bit RISC with 8 general-purpose registers
+// ----------------------------------------------------------------------------
+// Summary:
+//   - Instruction word width: 16 bits
+//   - Registers: R0..R7 (3-bit addresses)
+//   - Opcode field width: 7 bits (bits [15:9])
+//   - R-type instruction format fits entirely in one 16-bit word.
+//   - Immediate values (for LWI and similar) are stored in the NEXT memory
+//     word at address PC+1 and are 16 bits wide.
+// ============================================================================
+//
+// Bit numbering (instruction[15:0], 15 = MSB):
+//   [15:9]  opcode   : 7 bits
+//   [8:6]   rs_addr  : 3 bits
+//   [5:3]   rt_addr  : 3 bits
+//   [2:0]   rd_addr  : 3 bits
+//
+// Notes:
+//   - This layout yields exactly 16 bits: 7 + 3 + 3 + 3 = 16.
+//   - There is no separate 'func' field inside the 16-bit word; each opcode
+//     entirely identifies the operation (as in current opcode.v).
+//   - For instructions that require an immediate operand (LWI), the immediate
+//     is fetched from memory at address (PC + 1) and is a full 16-bit value.
+//   - The PC increments to point to the next instruction word; when executing
+//     an instruction that consumes an extra word (LWI), the CPU must read
+//     the immediate from PC+1 and then advance PC accordingly.
+// ============================================================================
+//
+// Instruction classes and examples (semantic descriptions):
+// ----------------------------------------------------------------------------
+// R-type (register-register, all encoded in one 16-bit word):
+//   Format: [opcode:7][rs:3][rt:3][rd:3]
+//
+//   Arithmetic:
+//     ADD  rd, rs, rt   -> rd = rs + rt
+//     SUB  rd, rs, rt   -> rd = rs - rt
+//     ADC  rd, rs, rt   -> rd = rs + rt + carry
+//     SBB  rd, rs, rt   -> rd = rs - rt - carry
+//     MUL  rd, rs, rt   -> rd = (signed) rs * rt (low WORD_WIDTH bits)
+//     UML  rd, rs, rt   -> rd = (unsigned) rs * rt (low WORD_WIDTH bits)
+//     DIV  rd, rs, rt   -> rd = (signed) rs / rt
+//     UDV  rd, rs, rt   -> rd = (unsigned) rs / rt
+//     INC  rd, rs       -> rd = rs + 1        (rt field ignored or zero)
+//     DEC  rd, rs       -> rd = rs - 1        (rt field ignored or zero)
+//
+//   Logic:
+//     AND  rd, rs, rt   -> rd = rs & rt
+//     ORR  rd, rs, rt   -> rd = rs | rt
+//     NOT  rd, rs       -> rd = ~rs            (rt field ignored)
+//     TCP  rd, rs       -> rd = ~rs + 1        (two's complement)
+//
+//   Shifts:
+//     SLL  rd, rs, rt   -> rd = rs << (rt & shift_mask)  (rt used as shift amount)
+//     SRL  rd, rs, rt   -> rd = rs >> (rt & shift_mask)  (logical)
+//     SRA  rd, rs, rt   -> rd = arithmetic_shift_right(rs, rt)
+//
+//   Data movement / memory (R-type):
 // 
-// R-инструкции (opcode=2=10):
-/*
-ADD rd, rs, rt [OPCODE_R][rs][ rt][rd][FUNC_ADD]  -> 16'b10_xxx_xxx_xxx_00000 // rs + rt -> rd
-SUB rd, rs, rt [OPCODE_R][rs][ rt][rd][FUNC_SUB]  -> 16'b10_xxx_xxx_xxx_00001 // rs - rt -> rd
-AND rd, rs, rt [OPCODE_R][rs][ rt][rd][FUNC_AND]  -> 16'b10_xxx_xxx_xxx_00010 // rs & rt -> rd
-ORR rd, rs, rt [OPCODE_R][rs][ rt][rd][FUNC_ORR]  -> 16'b10_xxx_xxx_xxx_00011 // rs | rt -> rd
-
-NOT rd, rs     [OPCODE_R][rs][___][ rd][FUNC_NOT] -> 16'b10_xxx_xxx_xxx_00100 // ~rs -> rd
-TCP rd, rs     [OPCODE_R][rs][___][ rd][FUNC_TCP] -> 16'b10_xxx_xxx_xxx_00101 // ~rs + 1 -> rd
-SHL rd, rs     [OPCODE_R][rs][___][ rd][FUNC_SHL] -> 16'b10_xxx_xxx_xxx_00110 // rs << 1 -> rd
-SHR rd, rs     [OPCODE_R][rs][___][ rd][FUNC_SHR] -> 16'b10_xxx_xxx_xxx_00111 // rs >> 1 -> rd
-LWD rd, rs     [OPCODE_R][rs][___][ rd][FUNC_LWD] -> 16'b10_xxx_xxx_xxx_01000 // mem[rs] -> rd
-MOV rd, rs     [OPCODE_R][rs][___][ rd][FUNC_MOV] -> 16'b10_xxx_xxx_xxx_01100 // rs -> rd
-MVH rd, rs     [OPCODE_R][rs][___][ rd][FUNC_MVH] -> 16'b10_xxx_xxx_xxx_01101 // rs[15:8] -> rd[15:8]
-MVL rd, rs     [OPCODE_R][rs][___][ rd][FUNC_MVL] -> 16'b10_xxx_xxx_xxx_01110 // rs[7:0] -> rd[7:0]
-JRL rd, rs     [OPCODE_R][rs][___][ rd][FUNC_JRL] -> 16'b10_xxx_xxx_xxx_01011 // PC+1 -> rd, rs -> PC
-
-SWD rt, rs     [OPCODE_R][rs][ rt][___][FUNC_SWD] -> 16'b10_xxx_xxx_xxx_01001 // rs -> mem[rt]
-JGZ rt, rs     [OPCODE_R][rs][ rt][___][FUNC_JGZ] -> 16'b10_xxx_xxx_xxx_01111 // rs > 0 ? rt -> PC
-JLZ rt, rs     [OPCODE_R][rs][ rt][___][FUNC_JLZ] -> 16'b10_xxx_xxx_xxx_10000 // rs < 0 ? rt -> PC
-JEZ rt, rs     [OPCODE_R][rs][ rt][___][FUNC_JEZ] -> 16'b10_xxx_xxx_xxx_10001 // rs == 0 ? rt -> PC
-JNZ rt, rs     [OPCODE_R][rs][ rt][___][FUNC_JNZ] -> 16'b10_xxx_xxx_xxx_10010 // rs != 0 ? rt -> PC
-
-JIR rs         [OPCODE_R][rs][___][___][FUNC_JIR] -> 16'b10_xxx_xxx_xxx_10011 // input_ready ? rs -> PC
-JPR rs         [OPCODE_R][rs][___][___][FUNC_JPR] -> 16'b10_xxx_xxx_xxx_01010 // rs -> PC
-*/
-
-// Immediate инструкции:
-/*
-NOP               [OPCODE_NOP][___][___][___][_____] -> 16'b00_xxx_xxx_xxx_xxxxx // нет операции
-LWI rd, immediate [OPCODE_LWI][ rd][___][___][_____] -> 16'b01_xxx_xxx_xxx_xxxxx + [immediate:16] // mem[PC+1] -> rd
-HLT               [OPCODE_HLT][___][___][___][_____] -> 16'b11_xxx_xxx_xxx_xxxxx // останов процессора
-*/
-
-// Регистры: R0(000), R1(001), R2(010), R3(011), R4(100), R5(101), R6(110), R7(111)
-
-// Распаковка инструкции:
-// wire [1:0] opcode    = instruction[15:14];    // 2 бита
-// wire [2:0] rs_addr   = instruction[13:11];    // 3 бита  
-// wire [2:0] rt_addr   = instruction[10:8];     // 3 бита
-// wire [2:0] rd_addr   = instruction[7:5];      // 3 бита
-// wire [4:0] func      = instruction[4:0];      // 5 бит
+//     rd - destination
+//     rs - source
+// 
+//     MOV  rd, rs       -> rd = rs
+//     LWD  rd, rs       -> rd = mem[ rs ]        (rs holds memory address)
+//     SWD  rt, rs       -> mem[ rt ] = rs        (rt holds memory address)
+//     MVH  rd, rs       -> rd[15:8] = rs[15:8]
+//     MVL  rd, rs       -> rd[7:0]  = rs[7:0]
+//     JRL  rd, rs       -> { PC+1 -> rd; PC := rs }  link-and-jump
+//
+//   Jumps / branches (R-type; use register value(s) for condition/target):
+//
+//     rs - jump target
+//     rt - jump condition
+//
+//     JPR  rs       -> PC := rs
+//     JIR  rs       -> if input_ready then PC : = rs
+//     JGZ  rs, rt   -> if $signed(rt) > 0 then PC : = rs
+//     JLZ  rs, rt   -> if $signed(rt) < 0 then PC : = rs
+//     JEZ  rs, rt   -> if rt == 0 then PC : = rs
+//     JNZ  rs, rt   -> if rt != 0 then PC : = rs
+//     JPC  rs       -> if carry_flag then PC : = rs
+//     JOV  rs       -> if overflow_flag then PC : = rs
+//     JZD  rs       -> if zerodiv_flag then PC : = rs
+//     
+// ----------------------------------------------------------------------------
+// Immediate / special instructions (consume the next memory word):
+//   These opcodes occupy one 16-bit instruction word; if they require an
+//   immediate value, that immediate is stored in the NEXT memory word (PC+1).
+//
+//   NOP (no operation):
+//     Encoding: opcode = OPCODE_NOP (rest fields ignored)
+//     Semantics: do nothing; PC := PC + 1
+//
+//   LWI rd, immediate:
+//     Encoding (instruction word): [OPCODE_LWI][rs/ignored][rt/ignored][rd]
+//     Immediate value: 16-bit immediate located at memory[PC + 1]
+//     Semantics: rd := immediate_from_memory(PC + 1); PC := PC + 2
+//     Note: CPU must fetch the extra 16-bit word at PC+1 when decoding/executing.
+//
+//   HLT (halt):
+//     Encoding: opcode = OPCODE_HLT (rest ignored)
+//     Semantics: stop processor (enter halted state)
+//
+// ----------------------------------------------------------------------------
+// Unpacking example (Verilog):
+//   wire [15:0] instr = instruction_word;
+//   wire [6:0] opcode = instr[15:9];   // 7 bits
+//   wire [2:0] rs     = instr[8:6];    // 3 bits
+//   wire [2:0] rt     = instr[5:3];    // 3 bits
+//   wire [2:0] rd     = instr[2:0];    // 3 bits
+//
+// Immediate fetch for LWI:
+//   if (opcode == OPCODE_LWI) begin
+//       immediate = memory[PC + 1];    // full 16-bit immediate
+//       rd_value   = immediate;
+//       PC         = PC + 2;
+//   end else begin
+//       PC = PC + 1;
+//   end
+//
+// ----------------------------------------------------------------------------
+// Registers encoding:
+//   R0 = 3'b000, R1 = 3'b001, R2 = 3'b010, R3 = 3'b011,
+//   R4 = 3'b100, R5 = 3'b101, R6 = 3'b110, R7 = 3'b111
+//
+// ============================================================================
+// Implementation notes / recommendations:
+//   1) Ensure instruction fetch logic increments PC by 2 when executing
+//      LWI (or any instruction that consumes an extra word). For typical
+//      single-cycle fetch/decode, perform an additional memory read at PC+1.
+//   2) Keep immediate treated as signed or unsigned consistently with ALU
+//      control (use $signed() in ALU when performing signed operations).
+//   3) Document in assembler that LWI is a two-word instruction (opcode + imm).
+// ============================================================================

@@ -21,21 +21,17 @@ const std::map<std::string, PreprocessorDirective> PREPROCESSOR_DIRECTIVES = {
 };
 
 enum AssemblerDirective {
-	ASM_DATA,
+	ASM_DATA = 0,
 	ASM_STRING,
-	ASM_ORG,
-	ASM_ALIGN,
 	ASM_LOAD,
-	ASM_EQU
+	ASM_EQU,
 };
 
 
 
 const std::map<std::string, AssemblerDirective> ASSEMBLER_DIRECTIVES = {
-	{".data",    ASM_DATA},
-	{".string",  ASM_STRING},
-	{".org",     ASM_ORG},
-	{".align",   ASM_ALIGN},
-	{".load", ASM_LOAD},
-	{".equ",     ASM_EQU}
+	{".data"  , ASM_DATA  },
+	{".string", ASM_STRING},
+	{".load"  , ASM_LOAD  },
+	{".equ"   , ASM_EQU   },
 };

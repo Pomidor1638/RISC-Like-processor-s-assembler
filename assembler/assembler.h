@@ -7,7 +7,7 @@ class Assembler
 {
 public:
 
-	std::vector<instruction_t> assemble(std::string source_code, int rom_size, bool v = false);
+	std::vector<instruction_t> assemble(std::string source_code, int rom_size, bool verbose = false);
 
 	bool writeFile(const std::vector<instruction_t>& data, std::string output_file, bool verilog_style = false);
 	std::string readFile(const std::string& filename);
@@ -95,6 +95,9 @@ protected:
 	bool analyzeInstruction(const std::string& line);
 	bool analyzeLabel(const std::string& line);
 	bool analyzeDirective(const std::string line);
+		bool analyzeDirectiveString(const std::string line);
+		bool analyzeDirectiveData(const std::string line);
+		bool analyzeDirectiveLoadFile(const std::string line);
 
 	// for second pass
 	bool second_pass(const std::list<std::string>& lines);

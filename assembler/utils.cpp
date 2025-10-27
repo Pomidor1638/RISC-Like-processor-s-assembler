@@ -47,7 +47,17 @@ std::list<std::string> parse_instruction(const std::string& line)
     return tokens;
 }
 
-std::list<std::string> parse_directive(const std::string& line)
+
+
+std::list<std::string> parse_directiveData(const std::string& line)
+{
+    return {};
+}
+std::list<std::string> parse_directiveString(const std::string& line) 
+{
+    return {};
+}
+std::list<std::string> parse_directiveLoadFile(const std::string& line) 
 {
     return {};
 }
@@ -62,13 +72,11 @@ std::list<std::string> split_text_to_lines(const std::string& text, bool trim_li
     {
         line = delete_comments(line);
 
-        if (trim_lines) {
+        if (trim_lines) 
             line = trim(line);
-        }
+        
 
-        if (!line.empty() || !trim_lines) {
-            lines.push_back(line);
-        }
+        lines.push_back(line);
     }
     return lines;
 }
@@ -85,25 +93,33 @@ bool is_intersect(int x, int x_size, int y, int y_size)
     return (x0 <= y1) && (y0 <= x1);
 }
 
-bool isLabel(const std::string& token) {
+bool isLabel(std::string token, bool is_arg) {
 
     if (token.empty())
         return false;
 
-    if (token.back() != ':')
+    if (token.back() != ':' && !is_arg)
         return false;
 
     if (token.find('.') == 0)
         return false;
 
-    std::string name = token.substr(0, token.length() - 1);
-    return isValidIdentifier(name);
+    if (!is_arg)
+        token = token.substr(0, token.length() - 1);
+
+    return isValidIdentifier(token);
 }
 
 
-bool isDirective(const std::string& token)
+bool isDirective(const std::string& line)
 {
-    return false;
+
+    std::stringstream ss(line);
+    std::string directive;
+
+    ss >> directive;
+
+    return ASSEMBLER_DIRECTIVES.find(directive) != ASSEMBLER_DIRECTIVES.end();
 }
 
 bool isMacro(const std::string& token)
@@ -197,13 +213,8 @@ bool isValidInstruction(std::string line)
         if (opcode == "LWI" && i == 1)
         {
             int value;
-            if (
-                !
-                (
-                    isValue(arg, value) ||
-                    (isLabel(arg) + ':')
-                    )
-                )
+            if (!(isValue(arg, value) || 
+                isLabel(arg, true)))
                 return false;
         }
         else
@@ -242,7 +253,7 @@ bool isEntryPoint(const std::string& token, bool check_label)
 {
     if (!check_label)
     {
-        if (!isLabel(token))
+        if (!isLabel(token, true))
             return false;
     }
 
@@ -269,25 +280,121 @@ int getOpcodeSize(const std::string& opcode)
     return opcode == "LWI" ? 2 : 1;
 }
 
-instruction_t packInstruction(int opcode, int func, int rd, int rs, int rt)
+std::vector<std::string> splitLines(const std::string& str) {
+    std::vector<std::string> lines;
+    std::istringstream stream(str);
+    std::string line;
+    while (std::getline(stream, line)) {
+        lines.push_back(line);
+    }
+    return lines;
+}
+
+void qprintf(bool verbose, int level, const char* format, ...) {
+
+    if (!verbose)
+        return;
+
+    va_list args;
+    va_start(args, format);
+
+    char buffer[1024 + 1];
+    vsnprintf(buffer, sizeof(buffer), format, args);
+    va_end(args);
+    buffer[1024] = '\0';
+
+    if (!level)
+    {
+        std::cout << buffer;
+        return;
+    }
+
+    std::vector<std::string> lines = splitLines(buffer);
+
+    std::string borderChar;
+    int minWidth;
+    switch (level) {
+    case 1: 
+        borderChar = "#"; 
+        minWidth = 40; 
+        break; 
+    case 2: 
+        borderChar = "*"; 
+        minWidth = 36; 
+        break;
+    case 3: 
+        borderChar = "-"; 
+        minWidth = 32; 
+        break;
+    case 4: 
+        borderChar = "~"; 
+        minWidth = 28; 
+        break;
+    default: 
+        borderChar = "-"; 
+        minWidth = 32; 
+        break;
+    }
+
+    size_t maxLineLength = 0;
+    for (const auto& line : lines) {
+        if (line.size() > maxLineLength) 
+            maxLineLength = line.size();
+    }
+    int width = std::max(static_cast<int>(maxLineLength) + 6, minWidth);
+
+    std::string borderLine(width, borderChar[0]);
+    std::cout << '\r' << borderLine << std::endl;
+
+    for (const auto& line : lines) {
+        int padding = (width - static_cast<int>(line.size()) - 2) / 2;
+        std::cout << borderChar
+            << std::string(padding, ' ')
+            << line
+            << std::string(width - padding - line.size() - 2, ' ')
+            << borderChar << std::endl;
+    }
+
+    std::cout << borderLine << std::endl;
+}
+
+std::string qsprintf(const char* format, ...) {
+    va_list args;
+    va_start(args, format);
+
+    va_list args_copy;
+    va_copy(args_copy, args);
+    int size = std::vsnprintf(nullptr, 0, format, args_copy);
+    va_end(args_copy);
+
+    if (size < 0) {
+        va_end(args);
+        return {};
+    }
+
+    std::vector<char> buffer(size + 1);
+    std::vsnprintf(buffer.data(), buffer.size(), format, args);
+    va_end(args);
+
+    return std::string(buffer.data(), size);
+}
+
+instruction_t packInstruction(int opcode, int rd, int rs, int rt)
 {
     static const instruction_t OPCODE_MASK = (1 << OPCODE_SIZE) - 1;
     static const instruction_t    REG_MASK = (1 << REG_ADDRESS_SIZE) - 1;
-    static const instruction_t   FUNC_MASK = (1 << FUNC_SIZE) - 1;
 
     // for additional safety
     opcode = opcode & OPCODE_MASK;
         rs =     rs &    REG_MASK;
         rt =     rt &    REG_MASK;
         rd =     rd &    REG_MASK;
-      func =   func &   FUNC_MASK;
 
     instruction_t inst =
         (opcode << OPCODE_SHIFT) |
         (    rd <<     RD_SHIFT) |
         (    rs <<     RS_SHIFT) |
-        (    rt <<     RT_SHIFT) |
-        (  func <<   FUNC_SHIFT);
+        (    rt <<     RT_SHIFT);
 
     return inst;
 }

@@ -2,16 +2,10 @@
 
 bool Assembler::second_pass(const std::list<std::string>& lines)
 {
-
-	if (verbose)
-	{
-		std::cout << "********* " << __func__ << " *********" << std::endl;
-	}
+	qprintf(verbose, 2, __func__);
 
 	line_num = 1;
-
 	bool result = true;
-
 
 	for (const auto& line : lines)
 	{
@@ -20,38 +14,28 @@ bool Assembler::second_pass(const std::list<std::string>& lines)
 			line_num++;
 			continue;
 		}
-
-		if (verbose)
-			std::cout << "Proccessing line: "
-			<< line_num << ":\n\t" << line << std::endl << "...";
-
 		// YandereDev moment
-
-		if (isLabel(line))
+		if (isLabel(line, false))
 		{
-			if (verbose)
-				std::cout << "it's label..." << std::endl;
 			if (!processLabel(line))
-			{
-				if (verbose)
-					std::cout << "fail" << std::endl;
 				result = false;
-			}
-			else if (verbose)
-				std::cout << "success" << std::endl;
 		}
 		else if (isInstruction(line))
 		{
-			if (verbose)
-				std::cout << "it's instruction...\n";
 			if (!processInstruction(line))
-			{
-				if (verbose)
-					std::cout << "fail" << std::endl;
 				result = false;
-			}
-			else if (verbose)
-				std::cout << "success" << std::endl;
+			
+		}
+		//else if (isDirective(line))
+		//{
+		//	/*skip*/
+		//	qprintf(verbose, 3, "skip directives now\n");
+		//} 
+		else
+		{
+			// I don't why I put this after first pass
+			addError(ErrorType::UNEXCEPTED_TOKEN, line, line_num);
+			result = false;
 		}
 
 		line_num++;
@@ -62,15 +46,14 @@ bool Assembler::second_pass(const std::list<std::string>& lines)
 
 bool Assembler::processNoArgsInstruction(const INSTRUCTION_META& instr)
 {
-	switch (instr.opcode_num)
+	switch (instr.opcode_code)
 	{
-	case _NOP:
-	case _HLT:
-		curBlock->assembled_instructions.push_back(packInstruction(instr.opcode_code, instr.func_code, 0, 0, 0));
+	case OPCODE_NOP:
+	case OPCODE_HLT:
+		curBlock->assembled_instructions.push_back(packInstruction(instr.opcode_code, 0, 0, 0));
 		break;
 	default:
-		addError(ErrorType::UNEXCEPTED_INSTRUCTION,
-			" Unsupported no-argument instruction ", line_num);
+		addError(ErrorType::UNEXCEPTED_INSTRUCTION, " Unsupported no-argument instruction ", line_num);
 		return false;
 	}
 
@@ -86,14 +69,15 @@ bool Assembler::processOneArgInstruction(const INSTRUCTION_META& instr, const st
 		return false;
 	}
 	
-	switch (instr.opcode_num)
+	switch (instr.opcode_code)
 	{
-	case _JPR:
-	case _JIR:
-		curBlock->assembled_instructions.push_back
-		(
-			packInstruction(instr.opcode_code, instr.func_code, 0, regnum, 0)
-		);
+	case OPCODE_JMP:
+	case OPCODE_JPR:
+	case OPCODE_JIR:
+	case OPCODE_JPC:
+	case OPCODE_JOV:
+	case OPCODE_JZD:
+		curBlock->assembled_instructions.push_back(packInstruction(instr.opcode_code, 0, regnum, 0));
 		break;
 	default:
 		addError(ErrorType::UNEXCEPTED_INSTRUCTION,
@@ -108,8 +92,7 @@ bool Assembler::processTwoArgsInstruction(
 	const INSTRUCTION_META& instr,
 	const std::string& arg1,
 	const std::string& arg2
-)
-{
+) {
 	int 
 		reg1num = 0, 
 		reg2num_or_value = 0,
@@ -137,7 +120,7 @@ bool Assembler::processTwoArgsInstruction(
 		reg2num_or_value = buf;
 		is_imm = true;
 	}
-	else if (isLabel(arg2))
+	else if (isLabel(arg2, true))
 	{
 		auto it = block_by_label.find(arg2);
 		if (it != block_by_label.end())
@@ -157,43 +140,43 @@ bool Assembler::processTwoArgsInstruction(
 		return false;
 	}
 
-	switch (instr.opcode_num)
+	switch (instr.opcode_code)
 	{
-	case _LWI:
+	case OPCODE_LWI:
 		if (!is_imm)
 		{
 			addError(ErrorType::UNEXCEPTED_ARGUMENT, arg2 + " LWI requires immediate value or label ", line_num);
 			return false;
 		}
 
-		curBlock->assembled_instructions.push_back(packInstruction(instr.opcode_code, instr.func_code, reg1num, 0, 0));
+		curBlock->assembled_instructions.push_back(packInstruction(instr.opcode_code, reg1num, 0, 0));
 		curBlock->assembled_instructions.push_back(instruction_t(reg2num_or_value));
 
 		return true;
 
-	case _TCP:
-	case _SHL:
-	case _SHR:
-	case _LWD:
-	case _NOT:
-	case _MOV:
-	case _JRL:
+	case OPCODE_TCP:
+	case OPCODE_INC:
+	case OPCODE_DEC:
+	case OPCODE_LWD:
+	case OPCODE_NOT:
+	case OPCODE_MOV:
+	case OPCODE_JRL:
 
 		rd = reg1num;
 		rs = reg2num_or_value;
 
 		break;
 
-	case _SWD:
+	case OPCODE_SWD:
 
 		rt = reg1num;
 		rs = reg2num_or_value;
 		break;
 
-	case _JGZ:
-	case _JLZ:
-	case _JEZ:
-	case _JNZ:
+	case OPCODE_JGZ:
+	case OPCODE_JLZ:
+	case OPCODE_JEZ:
+	case OPCODE_JNZ:
 
 		rs = reg1num;
 		rt = reg2num_or_value;
@@ -215,7 +198,7 @@ bool Assembler::processTwoArgsInstruction(
 
 	curBlock->assembled_instructions.
 	push_back(
-		packInstruction(instr.opcode_code, instr.func_code, rd, rs, rt)
+		packInstruction(instr.opcode_code, rd, rs, rt)
 	);
 
 	return true;
@@ -254,21 +237,32 @@ bool Assembler::processThreeArgsInstruction(
 		}
 	}
 
-	switch (instr.opcode_num)
+	switch (instr.opcode_code)
 	{
-	case _CCT:
-	case _ADD:
-	case _SUB:
-	case _AND:
-	case _ORR:
+	case OPCODE_ADD:
+	case OPCODE_SUB:
+	case OPCODE_ADC:
+	case OPCODE_SBB:
+	case OPCODE_MUL:
+	case OPCODE_DIV:
+	case OPCODE_UML:
+	case OPCODE_UDV:
+	case OPCODE_MHL:
+	case OPCODE_MLH:
+	case OPCODE_MHH:
+	case OPCODE_MLL:
+	case OPCODE_SLL:
+	case OPCODE_SRL:
+	case OPCODE_SRA:
+	case OPCODE_AND:
+	case OPCODE_ORR:
 		curBlock->assembled_instructions.push_back(
-			packInstruction(instr.opcode_code, instr.func_code, rd, rs, rt)
+			packInstruction(instr.opcode_code, rd, rs, rt)
 		);
 		break;
 
 	default:
-		addError(ErrorType::UNEXCEPTED_INSTRUCTION,
-			"Unsupported three-argument instruction", line_num);
+		addError(ErrorType::UNEXCEPTED_INSTRUCTION, " Unsupported three-argument instruction ", line_num);
 		return false;
 	}
 
@@ -279,6 +273,8 @@ bool Assembler::processThreeArgsInstruction(
 
 bool Assembler::processInstruction(const std::string& line)
 {
+	qprintf(verbose, 3, "%s\n%s", __func__, line.c_str());
+
 	if (line.empty() || line.length() < 3)
 	{
 		addError(ErrorType::UNEXCEPTED_INSTRUCTION, line, line_num);
@@ -329,15 +325,19 @@ bool Assembler::processInstruction(const std::string& line)
 	switch (meta.opcode_args_num)
 	{
 	case 0:
+		qprintf(verbose, 4, "processNoArgsInstruction %s", line.c_str());
 		result = processNoArgsInstruction(meta);
 		break;
 	case 1:
+		qprintf(verbose, 4, "processOneArgInstruction %s", line.c_str());
 		result = processOneArgInstruction(meta, args[0]);
 		break;
 	case 2:
+		qprintf(verbose, 4, "processTwoArgsInstruction %s", line.c_str());
 		result = processTwoArgsInstruction(meta, args[0], args[1]);
 		break;
 	case 3:
+		qprintf(verbose, 4, "processThreeArgsInstruction %s", line.c_str());
 		result = processThreeArgsInstruction(meta, args[0], args[1], args[2]);
 		break;
 	default:
@@ -357,6 +357,7 @@ bool Assembler::processInstruction(const std::string& line)
 
 bool Assembler::processLabel(const std::string& line)
 {
+	qprintf(verbose, 3, "%s\n%s", __func__, line.c_str());
 	if (line.empty() || line.length() <= 1) 
 	{
 		addError(ErrorType::UNEXCEPTED_LABEL, line, line_num);

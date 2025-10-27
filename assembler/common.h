@@ -7,6 +7,7 @@
 #include <sstream>
 
 #include <cstdint>
+#include <cstdarg>
 
 #include <vector>
 #include <list>
@@ -44,10 +45,7 @@ struct INSTRUCTION_META
 	// ADD rd, rs, rt - 3 args; 
 	// JPR rs - 1 arg; 
 	// HLT - no args
-
-	int opcode_num; // symbolic num for switch optimisation
 	int opcode_code;
-	int func_code;
 };
 
 const std::string ENTRY_POINT = "START"; // No entry point - No assemble 
