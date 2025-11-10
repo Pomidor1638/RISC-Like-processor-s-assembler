@@ -1,6 +1,6 @@
-#include "assembler.hpp"
+#include "assembler.h"
 
-bool Assembler::second_pass(const std::list<std::string>& lines)
+bool Assembler::asm_second_pass(const std::list<std::string>& lines)
 {
 	qprintf(verbose, 2, __func__);
 
@@ -34,7 +34,7 @@ bool Assembler::second_pass(const std::list<std::string>& lines)
 		else
 		{
 			// I don't why I put this after first pass
-			addError(ErrorType::UNEXCEPTED_TOKEN, line, line_num);
+			error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_TOKEN, line, line_num);
 			result = false;
 		}
 
@@ -53,7 +53,7 @@ bool Assembler::processNoArgsInstruction(const INSTRUCTION_META& instr)
 		curBlock->assembled_instructions.push_back(packInstruction(instr.opcode_code, 0, 0, 0));
 		break;
 	default:
-		addError(ErrorType::UNEXCEPTED_INSTRUCTION, " Unsupported no-argument instruction ", line_num);
+		error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_INSTRUCTION, " Unsupported no-argument instruction ", line_num);
 		return false;
 	}
 
@@ -65,22 +65,23 @@ bool Assembler::processOneArgInstruction(const INSTRUCTION_META& instr, const st
 	int regnum;
 	if (!isRegister(arg1, regnum))
 	{
-		addError(ErrorType::UNEXCEPTED_REGISTER, arg1, line_num);
+		error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_REGISTER, arg1, line_num);
 		return false;
 	}
 	
 	switch (instr.opcode_code)
 	{
-	case OPCODE_JMP:
 	case OPCODE_JPR:
-	case OPCODE_JIR:
 	case OPCODE_JPC:
 	case OPCODE_JOV:
 	case OPCODE_JZD:
 		curBlock->assembled_instructions.push_back(packInstruction(instr.opcode_code, 0, regnum, 0));
 		break;
+	case OPCODE_LPC:
+		curBlock->assembled_instructions.push_back(packInstruction(instr.opcode_code, regnum, 0, 0));
+		break;
 	default:
-		addError(ErrorType::UNEXCEPTED_INSTRUCTION,
+		error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_INSTRUCTION,
 			" Unsupported one-argument instruction ", line_num);
 		return false;
 	}
@@ -105,7 +106,7 @@ bool Assembler::processTwoArgsInstruction(
 
 	if (!isRegister(arg1, reg1num))
 	{
-		addError(ErrorType::UNEXCEPTED_REGISTER, arg1, line_num);
+		error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_REGISTER, arg1, line_num);
 		return false;
 	}
 
@@ -130,13 +131,13 @@ bool Assembler::processTwoArgsInstruction(
 		}
 		else
 		{
-			addError(ErrorType::UNEXCEPTED_LABEL, " Undefined label: " + arg2, line_num);
+			error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_LABEL, " Undefined label: " + arg2, line_num);
 			return false;
 		}
 	}
 	else
 	{
-		addError(ErrorType::UNEXCEPTED_ARGUMENT, arg2, line_num);
+		error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_ARGUMENT, arg2, line_num);
 		return false;
 	}
 
@@ -145,7 +146,7 @@ bool Assembler::processTwoArgsInstruction(
 	case OPCODE_LWI:
 		if (!is_imm)
 		{
-			addError(ErrorType::UNEXCEPTED_ARGUMENT, arg2 + " LWI requires immediate value or label ", line_num);
+			error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_ARGUMENT, arg2 + " LWI requires immediate value or label ", line_num);
 			return false;
 		}
 
@@ -184,14 +185,14 @@ bool Assembler::processTwoArgsInstruction(
 		break;
 
 	default:
-		addError(ErrorType::UNEXCEPTED_INSTRUCTION, 
+		error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_INSTRUCTION,
 			" Unsupported two-argument instruction ", line_num);
 		return false;
 	}
 
 	if (is_imm)
 	{
-		addError(ErrorType::UNEXCEPTED_ARGUMENT, arg2 +
+		error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_ARGUMENT, arg2 +
 			" This instruction requires register as second argument ", line_num);
 		return false;
 	}
@@ -232,7 +233,7 @@ bool Assembler::processThreeArgsInstruction(
 	{
 		if (!x.func(x.arg, x.value))
 		{
-			addError(ErrorType::UNEXCEPTED_ARGUMENT, x.arg + " 3-arg instruction requires only registers ", line_num);
+			error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_ARGUMENT, x.arg + " 3-arg instruction requires only registers ", line_num);
 			return false;
 		}
 	}
@@ -262,7 +263,7 @@ bool Assembler::processThreeArgsInstruction(
 		break;
 
 	default:
-		addError(ErrorType::UNEXCEPTED_INSTRUCTION, " Unsupported three-argument instruction ", line_num);
+		error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_INSTRUCTION, " Unsupported three-argument instruction ", line_num);
 		return false;
 	}
 
@@ -277,13 +278,13 @@ bool Assembler::processInstruction(const std::string& line)
 
 	if (line.empty() || line.length() < 3)
 	{
-		addError(ErrorType::UNEXCEPTED_INSTRUCTION, line, line_num);
+		error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_INSTRUCTION, line, line_num);
 		return false;
 	}
 
 	if (line[line.length() - 1] == ',')
 	{
-		addError(ErrorType::UNEXCEPTED_INSTRUCTION, line, line_num);
+		error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_INSTRUCTION, line, line_num);
 		return false;
 	}
 
@@ -292,7 +293,7 @@ bool Assembler::processInstruction(const std::string& line)
 
 	if (tokens.empty())
 	{
-		addError(ErrorType::UNEXCEPTED_INSTRUCTION, line, line_num);
+		error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_INSTRUCTION, line, line_num);
 		return false;
 	}
 
@@ -306,13 +307,13 @@ bool Assembler::processInstruction(const std::string& line)
 
 	if (!isOpcode(opcode, meta))
 	{
-		addError(ErrorType::UNEXCEPTED_OPCODE, line, line_num);
+		error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_OPCODE, line, line_num);
 		return false;
 	}
 
 	if (meta.opcode_args_num != tokens.size())
 	{
-		addError(ErrorType::UNEXCEPTED_ARGS_NUM, line, line_num);
+		error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_ARGS_NUM, line, line_num);
 		return false;
 	}
 	
@@ -341,13 +342,13 @@ bool Assembler::processInstruction(const std::string& line)
 		result = processThreeArgsInstruction(meta, args[0], args[1], args[2]);
 		break;
 	default:
-		addError(ErrorType::UNEXCEPTED_ARGS_NUM, line, line_num);
+		error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_ARGS_NUM, line, line_num);
 		return false;
 	}
 
 	if (!result) 
 	{
-		addError(ErrorType::UNEXCEPTED_ARGUMENT, line, line_num);
+		error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_ARGUMENT, line, line_num);
 	}
 
 	return result;
@@ -360,7 +361,7 @@ bool Assembler::processLabel(const std::string& line)
 	qprintf(verbose, 3, "%s\n%s", __func__, line.c_str());
 	if (line.empty() || line.length() <= 1) 
 	{
-		addError(ErrorType::UNEXCEPTED_LABEL, line, line_num);
+		error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_LABEL, line, line_num);
 		return false;
 	}
 
@@ -370,7 +371,7 @@ bool Assembler::processLabel(const std::string& line)
 
 	if (it == block_by_label.end())
 	{
-		addError(ErrorType::UNEXCEPTED_LABEL, line, line_num);
+		error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_LABEL, line, line_num);
 		return false;
 	}
 

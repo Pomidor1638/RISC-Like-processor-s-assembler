@@ -11,6 +11,7 @@
 
 #include <vector>
 #include <list>
+#include <stack>
 #include <string>
 #include <map>
 #include <functional>
@@ -19,14 +20,14 @@
 #include <cctype>
 
 
+
+
 typedef uint16_t instruction_t;
 
 typedef uint8_t byte;
 typedef int address_t;
 
 const uint64_t MAX_ADDRES = (address_t)-1;
-
-
 
 // scary C moment
 #include "pack.h"
@@ -77,7 +78,6 @@ const std::map<std::string, int> REGISTERS
 
 #include "directives.h"
 
-
 // Fear me
 const std::string CRITICAL_ERROR_HEADER = R"(
 	##==============================##
@@ -85,3 +85,6 @@ const std::string CRITICAL_ERROR_HEADER = R"(
 	||        ASSEMBLER ERROR       ||
 	##==============================##
 )";
+
+#include "error.h"
+

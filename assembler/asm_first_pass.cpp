@@ -1,7 +1,7 @@
-#include "assembler.hpp"
-#include "utils.hpp"
+#include "assembler.h"
+#include "utils.h"
 
-bool Assembler::first_pass(const std::list<std::string>& lines)
+bool Assembler::asm_first_pass(const std::list<std::string>& lines)
 {
 	qprintf(verbose, 2, __func__);
 
@@ -33,7 +33,7 @@ bool Assembler::first_pass(const std::list<std::string>& lines)
 		}
 		else
 		{
-			addError(ErrorType::UNEXCEPTED_TOKEN, " What the fuck is this ? " + line, line_num);
+			error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_TOKEN, " What the fuck is this ? " + line, line_num);
 			result = false;
 		}
 		line_num++;
@@ -41,7 +41,7 @@ bool Assembler::first_pass(const std::list<std::string>& lines)
 
 	if (!has_entry_point)
 	{
-		addError(ErrorType::NO_ENTRY_POINT, {}, -1, true);
+		error_log.addError(ErrorLog::ASSEMBLER_NO_ENTRY_POINT, {}, -1, true);
 		result = false;
 	}
 
@@ -56,7 +56,7 @@ bool Assembler::first_pass(const std::list<std::string>& lines)
 
 			if (cur_address >= ROM_SIZE)
 			{
-				addError(ErrorType::ROM_OVERFLOW, block.label, -1, true);
+				error_log.addError(ErrorLog::ASSEMBLER_ROM_OVERFLOW, block.label, -1, true);
 				result = false;
 				break;
 			}
@@ -89,7 +89,7 @@ bool Assembler::first_pass(const std::list<std::string>& lines)
 							<< "  " << b2.label << ": 0x" << std::hex << b2.base_address
 							<< " - 0x" << b2.base_address + b2.size - 1;
 
-						addError(ErrorType::ASSEMBLE_BLOCKS_OVERLAP, ss.str(), -1, true);
+						error_log.addError(ErrorLog::ASSEMBLER_BLOCKS_OVERLAP, ss.str(), -1, true);
 						result = false;
 					}
 				}
@@ -112,7 +112,7 @@ bool Assembler::analyzeInstruction(const std::string& line)
 
 	if (!isValidInstruction(line))
 	{
-		addError(ErrorType::UNEXCEPTED_INSTRUCTION, line, line_num);
+		error_log.addError(ErrorLog::UNEXCEPTED_INSTRUCTION, line, line_num);
 		result = false;
 	}
 
@@ -123,7 +123,7 @@ bool Assembler::analyzeInstruction(const std::string& line)
 	}
 	else
 	{
-		addError(ErrorType::UNEXCEPTED_INSTRUCTION_PLACEMENT, line, line_num);
+		error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_INSTRUCTION_PLACEMENT, line, line_num);
 		result = false;
 	}
 
@@ -161,7 +161,7 @@ bool Assembler::analyzeDirective(const std::string line)
 
 	if (it == ASSEMBLER_DIRECTIVES.end())
 	{
-		addError(ErrorType::UNEXCEPTED_DIRECTIVE, line, line_num);
+		error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_DIRECTIVE, line, line_num);
 		return false;
 	}
 
@@ -175,11 +175,11 @@ bool Assembler::analyzeDirective(const std::string line)
 		analyzeDirectiveData(line);
 	case ASM_STRING:
 		analyzeDirectiveString(line);
-	case ASM_LOAD:
+	case ASM_INCBIN:
 		analyzeDirectiveLoadFile(line);
 
 	default:
-		addError(ErrorType::UNEXCEPTED_DIRECTIVE, line, line_num);
+		error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_DIRECTIVE, line, line_num);
 		return false;
 	}
 	
@@ -197,7 +197,7 @@ bool Assembler::analyzeLabel(const std::string& line)
 	if (block_by_label.find(label_name) != block_by_label.end())
 	{
 		qprintf(verbose, 0, "Found duplicate label %s\n", label_name.c_str());
-		addError(ErrorType::MULTIPLE_DEFINITIONS, line, line_num, true);
+		error_log.addError(ErrorLog::ASSEMBLER_MULTIPLE_DEFINITIONS, line, line_num, true);
 		return false;
 	}
 

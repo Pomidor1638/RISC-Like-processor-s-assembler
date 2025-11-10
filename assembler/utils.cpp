@@ -1,6 +1,5 @@
 
-#include "utils.hpp"
-
+#include "utils.h"
 
 std::string trim(const std::string& str)
 {
@@ -21,6 +20,23 @@ std::string delete_comments(const std::string& line)
         clean_line = clean_line.substr(0, comment_pos);
     }
     return clean_line;
+}
+
+std::list<std::string> parse_preprocess_directive(const std::string& line)
+{
+    std::list<std::string> tokens;
+    std::stringstream ss(line);
+    std::string token;
+
+    while (ss >> token)
+    {
+        if (!token.empty())
+        {
+            tokens.push_back(token);
+        }
+    }
+
+    return tokens;
 }
 
 std::list<std::string> parse_instruction(const std::string& line)
@@ -53,11 +69,11 @@ std::list<std::string> parse_directiveData(const std::string& line)
 {
     return {};
 }
-std::list<std::string> parse_directiveString(const std::string& line) 
+std::list<std::string> parse_directiveString(const std::string& line)
 {
     return {};
 }
-std::list<std::string> parse_directiveLoadFile(const std::string& line) 
+std::list<std::string> parse_directiveLoadFile(const std::string& line)
 {
     return {};
 }
@@ -72,9 +88,9 @@ std::list<std::string> split_text_to_lines(const std::string& text, bool trim_li
     {
         line = delete_comments(line);
 
-        if (trim_lines) 
+        if (trim_lines)
             line = trim(line);
-        
+
 
         lines.push_back(line);
     }
@@ -153,6 +169,130 @@ bool isRegister(const std::string& token, int& regnum)
     return true;
 }
 
+std::string readFile(const std::string& filename, bool verbose)
+{
+    qprintf(verbose, 1, __func__);
+
+    std::ifstream file(filename, std::ios::binary);
+
+    if (!file.is_open())
+    {
+        error_log.addError(ErrorLog::FILE_CANNOT_OPEN, filename, -1);
+        return {};
+    }
+
+    file.seekg(0, std::ios::end);
+    size_t size = file.tellg();
+
+    if (file.fail())
+    {
+        error_log.addError(ErrorLog::FILE_CANNOT_READ, "\nCannot determine file size: " + filename, -1);
+        return {};
+    }
+
+    file.seekg(0, std::ios::beg);
+    std::string content(size, '\0');
+    file.read(&content[0], size);
+
+    if (!file.good() && file.gcount() != static_cast<std::streamsize>(size))
+    {
+        error_log.addError(ErrorLog::FILE_CANNOT_READ, filename, -1);
+        return {};
+    }
+
+    qprintf(verbose, 0, "Successfully read file: %s (%i)", filename.c_str(), size);
+
+    file.close();
+    return content;
+}
+
+
+bool writeFile(const std::vector<instruction_t>& instructions, std::string output_file, bool verbose, bool verilog_style)
+{
+    qprintf(verbose, 1, "%s\n%s", __func__, output_file.c_str());
+
+    std::ofstream file;
+
+
+    if (verilog_style)
+    {
+        file.open(output_file);
+    }
+    else
+    {
+        file.open(output_file, std::ios::binary);
+    }
+
+    if (!file.is_open())
+    {
+        if (verbose)
+            std::cout << "Fail" << std::endl;
+
+        error_log.addError(
+            ErrorLog::FILE_CANNOT_OPEN,
+            output_file,
+            -1
+        );
+        return false;
+    }
+
+    if (verbose)
+        std::cout << "Ok" << std::endl;
+
+    if (verilog_style)
+    {
+        if (verbose)
+            std::cout << "Writing " << (verilog_style ? "COE" : "Verilog")
+            << " format (" << instructions.size() << " instructions)... ";
+
+        file << "memory_initialization_radix=2;" << std::endl;
+        file << "memory_initialization_vector=" << std::endl;
+
+        for (size_t i = 0; i < instructions.size(); ++i)
+        {
+            file << instructionToBinaryString(instructions[i]);
+
+            if (verilog_style && i < instructions.size() - 1)
+            {
+                file << ',';
+            }
+            file << std::endl;
+        }
+
+        if (verilog_style)
+        {
+            file << ';' << std::endl;
+        }
+    }
+    else
+    {
+        if (verbose)
+            std::cout << "Writing binary format (" << instructions.size() * sizeof(instruction_t) << " bytes)... ";
+
+        file.write(reinterpret_cast<const char*>(instructions.data()),
+            instructions.size() * sizeof(instruction_t));
+    }
+
+    if (!file.good())
+    {
+        if (verbose)
+            std::cout << "Fail" << std::endl;
+
+        error_log.addError(
+            ErrorLog::FILE_CANNOT_WRITE,
+            output_file,
+            -1
+        );
+        return false;
+    }
+
+    if (verbose)
+        std::cout << "Ok" << std::endl;
+
+    file.close();
+    return true;
+}
+
 bool isValue(const std::string& token, int& value)
 {
     if (token.empty())
@@ -169,7 +309,37 @@ bool isValue(const std::string& token, int& value)
     }
 }
 
-bool isInstruction(std::string line)
+
+bool isPreprocessDirective(const std::string& line)
+{
+    if (line.empty())
+        return false;
+
+    if (line[0] != '#')
+        return false;
+
+    auto tokens = parse_preprocess_directive(line);
+
+    if (tokens.empty())
+        return false;
+
+    const auto& directive = tokens.front();
+
+    if (directive.empty() || directive[0] != '#')
+    {
+        return false;
+    }
+
+    std::string cleanDirective = directive.substr(1);
+    return PREPROCESSOR_DIRECTIVES.find(cleanDirective) != PREPROCESSOR_DIRECTIVES.end();
+}
+
+bool isPreprocessMacros(const std::string& line)
+{
+
+}
+
+bool isInstruction(const std::string& line)
 {
     std::stringstream ss(line);
     std::string opcode;
@@ -181,7 +351,7 @@ bool isInstruction(std::string line)
     return isOpcode(opcode, meta);
 }
 
-bool isValidInstruction(std::string line)
+bool isValidInstruction(const std::string& line)
 {
 
     if (line[line.length() - 1] == ',')
@@ -213,7 +383,7 @@ bool isValidInstruction(std::string line)
         if (opcode == "LWI" && i == 1)
         {
             int value;
-            if (!(isValue(arg, value) || 
+            if (!(isValue(arg, value) ||
                 isLabel(arg, true)))
                 return false;
         }
@@ -231,16 +401,16 @@ bool isValidInstruction(std::string line)
     return true;
 }
 
-bool isValidIdentifier(const std::string& name)
+bool isValidIdentifier(const std::string& token)
 {
-    if (name.empty())
+    if (token.empty())
         return false;
 
-    if (!std::isalpha(name[0]) && name[0] != '_')
+    if (!std::isalpha(token[0]) && token[0] != '_')
         return false;
 
 
-    for (char c : name)
+    for (char c : token)
     {
         if (!std::isalnum(c) && c != '_')
             return false;
@@ -314,31 +484,31 @@ void qprintf(bool verbose, int level, const char* format, ...) {
     std::string borderChar;
     int minWidth;
     switch (level) {
-    case 1: 
-        borderChar = "#"; 
-        minWidth = 40; 
-        break; 
-    case 2: 
-        borderChar = "*"; 
-        minWidth = 36; 
+    case 1:
+        borderChar = "#";
+        minWidth = 40;
         break;
-    case 3: 
-        borderChar = "-"; 
-        minWidth = 32; 
+    case 2:
+        borderChar = "*";
+        minWidth = 36;
         break;
-    case 4: 
-        borderChar = "~"; 
-        minWidth = 28; 
+    case 3:
+        borderChar = "-";
+        minWidth = 32;
         break;
-    default: 
-        borderChar = "-"; 
-        minWidth = 32; 
+    case 4:
+        borderChar = "~";
+        minWidth = 28;
+        break;
+    default:
+        borderChar = "-";
+        minWidth = 32;
         break;
     }
 
     size_t maxLineLength = 0;
     for (const auto& line : lines) {
-        if (line.size() > maxLineLength) 
+        if (line.size() > maxLineLength)
             maxLineLength = line.size();
     }
     int width = std::max(static_cast<int>(maxLineLength) + 6, minWidth);
@@ -346,7 +516,8 @@ void qprintf(bool verbose, int level, const char* format, ...) {
     std::string borderLine(width, borderChar[0]);
     std::cout << '\r' << borderLine << std::endl;
 
-    for (const auto& line : lines) {
+    for (const auto& line : lines)
+    {
         int padding = (width - static_cast<int>(line.size()) - 2) / 2;
         std::cout << borderChar
             << std::string(padding, ' ')
@@ -358,7 +529,8 @@ void qprintf(bool verbose, int level, const char* format, ...) {
     std::cout << borderLine << std::endl;
 }
 
-std::string qsprintf(const char* format, ...) {
+std::string qsprintf(const char* format, ...)
+{
     va_list args;
     va_start(args, format);
 
@@ -367,7 +539,8 @@ std::string qsprintf(const char* format, ...) {
     int size = std::vsnprintf(nullptr, 0, format, args_copy);
     va_end(args_copy);
 
-    if (size < 0) {
+    if (size < 0)
+    {
         va_end(args);
         return {};
     }
@@ -386,15 +559,15 @@ instruction_t packInstruction(int opcode, int rd, int rs, int rt)
 
     // for additional safety
     opcode = opcode & OPCODE_MASK;
-        rs =     rs &    REG_MASK;
-        rt =     rt &    REG_MASK;
-        rd =     rd &    REG_MASK;
+    rs = rs & REG_MASK;
+    rt = rt & REG_MASK;
+    rd = rd & REG_MASK;
 
     instruction_t inst =
         (opcode << OPCODE_SHIFT) |
-        (    rd <<     RD_SHIFT) |
-        (    rs <<     RS_SHIFT) |
-        (    rt <<     RT_SHIFT);
+        (rd << RD_SHIFT) |
+        (rs << RS_SHIFT) |
+        (rt << RT_SHIFT);
 
     return inst;
 }
