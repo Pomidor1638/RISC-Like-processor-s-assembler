@@ -53,7 +53,10 @@ protected:
 	bool analyzeLabel(const std::string& line);
 	bool analyzeDirective(const std::string line);
 	bool analyzeDirectiveString(const std::string line);
-	bool analyzeDirectiveData(const std::string line);
+	bool analyzeDirectiveByte(const std::string line);
+	bool analyzeDirectiveData16(const std::string line);
+	bool analyzeDirectiveData32(const std::string line);
+
 	bool analyzeDirectiveLoadFile(const std::string line);
 
 	// for second pass
@@ -75,6 +78,13 @@ protected:
 	);
 
 	bool processLabel(const std::string& line);
+
+	bool processDirective(const std::string& line);
+	bool processDirectiveByte(const std::string& line);
+	bool processDirectiveData16(const std::string& line);
+	bool processDirectiveData32(const std::string& line);
+	bool processDirectiveString(const std::string& line);
+	bool processDirectiveLoadFile(const std::string& line);
 
 public:
 

@@ -1,0 +1,4 @@
+STRING:
+.string "check"
+START:
+NOP

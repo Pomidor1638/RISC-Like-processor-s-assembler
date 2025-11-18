@@ -26,14 +26,14 @@ bool Assembler::asm_second_pass(const std::list<std::string>& lines)
 				result = false;
 			
 		}
-		//else if (isDirective(line))
-		//{
-		//	/*skip*/
-		//	qprintf(verbose, 3, "skip directives now\n");
-		//} 
+		else if (isDirective(line))
+		{
+			if (!processDirective(line))
+				result = false;
+		}
 		else
 		{
-			// I don't why I put this after first pass
+			// I don't know why I put this after first pass
 			error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_TOKEN, line, line_num);
 			result = false;
 		}
@@ -116,7 +116,7 @@ bool Assembler::processTwoArgsInstruction(
 	{
 		reg2num_or_value = buf;
 	}
-	else if (isValue(arg2, buf))
+	else if (isValue16(arg2, buf))
 	{
 		reg2num_or_value = buf;
 		is_imm = true;
@@ -346,10 +346,10 @@ bool Assembler::processInstruction(const std::string& line)
 		return false;
 	}
 
-	if (!result) 
+	/*if (!result) 
 	{
 		error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_ARGUMENT, line, line_num);
-	}
+	}*/
 
 	return result;
 }
@@ -377,5 +377,204 @@ bool Assembler::processLabel(const std::string& line)
 
 	curBlock = it->second;
 
+	return true;
+}
+
+
+bool Assembler::processDirective(const std::string& line)
+{
+	qprintf(verbose, 3, "%s\n%s", __func__, line.c_str());
+
+	if (line.empty())
+	{
+		error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_DIRECTIVE, line, line_num);
+		return false;
+	}
+
+	std::stringstream ss(line);
+	std::string directive;
+	ss >> directive;
+
+	if (directive[0] == '.')
+	{
+		directive = directive.substr(1);
+	}
+
+	auto it = ASSEMBLER_DIRECTIVES.find(directive);
+	if (it == ASSEMBLER_DIRECTIVES.end())
+	{
+		error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_DIRECTIVE, line, line_num);
+		return false;
+	}
+
+	switch (it->second)
+	{
+	case ASM_BYTE:
+		return processDirectiveByte(line);
+	case ASM_DATA16:
+		return processDirectiveData16(line);
+	case ASM_DATA32:
+		return processDirectiveData32(line);
+	case ASM_STRING:
+		return processDirectiveString(line);
+	case ASM_INCBIN:
+		return processDirectiveLoadFile(line);
+	default:
+		error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_DIRECTIVE, line, line_num);
+		return false;
+	}
+}
+
+bool Assembler::processDirectiveByte(const std::string& line)
+{
+	auto tokens = parse_directiveData(line);
+	if (tokens.empty())
+	{
+		error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_ARGUMENT, line, line_num);
+		return false;
+	}
+	std::vector<byte> bytes;
+
+	for (const auto& token : tokens)
+	{
+		int value;
+		if (!isValue8(token, value))
+		{
+			error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_IMM_VALUE, line, line_num);
+			return false;
+		}
+		bytes.push_back(static_cast<uint8_t>(value & 0xFF));
+	}
+	for (size_t i = 0; i < bytes.size(); i += 2)
+	{
+		instruction_t packed;
+		if (i + 1 < bytes.size())
+		{
+			packed = (bytes[i + 1] << 8) | bytes[i];
+		}
+		else
+		{
+			packed = bytes[i];
+		}
+		curBlock->assembled_instructions.push_back(packed);
+	}
+
+	qprintf(verbose, 2, "Processed .byte with %zu values (%zu bytes)", tokens.size(), bytes.size());
+	return true;
+}
+
+bool Assembler::processDirectiveData16(const std::string& line)
+{
+	auto tokens = parse_directiveData(line);
+
+	if (tokens.empty())
+	{
+		error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_ARGUMENT, line, line_num);
+		return false;
+	}
+	for (const auto& token : tokens)
+	{
+		int value;
+		if (!isValue16(token, value))
+		{
+			error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_IMM_VALUE, line, line_num);
+			return false;
+		}
+		curBlock->assembled_instructions.push_back(static_cast<instruction_t>(value & 0xFFFF));
+	}
+
+	qprintf(verbose, 2, "Processed .data16 with %zu values", tokens.size());
+	return true;
+}
+
+bool Assembler::processDirectiveData32(const std::string& line)
+{
+	auto tokens = parse_directiveData(line);
+
+	if (tokens.empty())
+	{
+		error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_ARGUMENT, line, line_num);
+		return false;
+	}
+	for (const auto& token : tokens)
+	{
+		int value;
+		if (!isValue32(token, value))
+		{
+			error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_IMM_VALUE, line, line_num);
+			return false;
+		}
+		curBlock->assembled_instructions.push_back(static_cast<instruction_t>(value & 0xFFFF));
+		curBlock->assembled_instructions.push_back(static_cast<instruction_t>((value >> 16) & 0xFFFF));
+	}
+
+	qprintf(verbose, 2, "Processed .data32 with %zu values", tokens.size());
+	return true;
+}
+
+bool Assembler::processDirectiveString(const std::string& line)
+{
+	auto tokens = parse_directiveString(line);
+	if (tokens.empty())
+	{
+		error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_STRING, line, line_num);
+		return false;
+	}
+
+	std::string str_content = tokens.front();
+
+	std::string full_data = str_content + '\0';
+
+	for (size_t i = 0; i < full_data.size(); i += 2)
+	{
+		uint16_t packed_value;
+		if (i + 1 < full_data.size())
+		{
+			packed_value = (static_cast<uint8_t>(full_data[i + 1]) << 8) |
+				static_cast<uint8_t>(full_data[i]);
+		}
+		else
+		{
+			packed_value = static_cast<uint8_t>(full_data[i]);
+		}
+		curBlock->assembled_instructions.push_back(packed_value);
+	}
+
+	qprintf(verbose, 2, "Processed .string: \"%s\" (%zu bytes, %zu instructions)",
+		str_content.c_str(), full_data.size(), curBlock->assembled_instructions.size());
+	return true;
+}
+
+bool Assembler::processDirectiveLoadFile(const std::string& line)
+{
+	auto tokens = parse_directiveLoadFile(line);
+	if (tokens.empty())
+	{
+		error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_ARGUMENT, line, line_num);
+		return false;
+	}
+
+	std::string filename = tokens.front();
+	std::string file_content;
+	if (!readFile(filename, file_content, verbose))
+	{
+		error_log.addError(ErrorLog::FILE_CANNOT_OPEN, line, line_num);
+		return false;
+	}
+	for (size_t i = 0; i < file_content.size(); i += 2)
+	{
+		uint16_t packed;
+		if (i + 1 < file_content.size())
+		{
+			packed = (static_cast<uint8_t>(file_content[i + 1]) << 8) |
+				static_cast<uint8_t>(file_content[i]);
+		}
+		else
+		{
+			packed = static_cast<uint8_t>(file_content[i]);
+		}
+		curBlock->assembled_instructions.push_back(packed);
+	}
+	qprintf(verbose, 2, "Processed .loadfile: %s (%zu bytes)", filename.c_str(), file_content.size());
 	return true;
 }

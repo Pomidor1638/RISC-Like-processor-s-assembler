@@ -67,18 +67,211 @@ std::list<std::string> parse_instruction(const std::string& line)
 
 std::list<std::string> parse_directiveData(const std::string& line)
 {
-    return {};
-}
-std::list<std::string> parse_directiveString(const std::string& line)
-{
-    return {};
-}
-std::list<std::string> parse_directiveLoadFile(const std::string& line)
-{
-    return {};
+    std::list<std::string> tokens;
+    std::stringstream ss(line);
+    std::string token;
+
+    ss >> token;
+
+    std::string values;
+    std::getline(ss, values);
+
+    size_t start = values.find_first_not_of(" \t");
+    if (start != std::string::npos) 
+    {
+        values = values.substr(start);
+    }
+
+    std::stringstream values_ss(values);
+    std::string value_token;
+
+    while (std::getline(values_ss, value_token, ',')) 
+    {
+        std::string trimmed = trim(value_token);
+        if (!trimmed.empty()) 
+        {
+            tokens.push_back(trimmed);
+        }
+    }
+
+    return tokens;
 }
 
-std::list<std::string> split_text_to_lines(const std::string& text, bool trim_lines)
+std::list<std::string> parse_directiveString(const std::string& line)
+{
+    std::list<std::string> tokens;
+    std::stringstream ss(line);
+    std::string token;
+
+    ss >> token;
+    if (token != ".string") 
+    {
+        return tokens;
+    }
+
+    std::string rest;
+    std::getline(ss, rest);
+    rest = trim(rest);
+
+    if (rest.length() < 2 || rest[0] != '"' || rest[rest.length() - 1] != '"')
+    {
+        return tokens;
+    }
+
+    std::string str_content = rest.substr(1, rest.length() - 2);
+    tokens.push_back(str_content);
+
+    return tokens;
+}
+
+std::list<std::string> parse_directiveLoadFile(const std::string& line)
+{
+    std::list<std::string> tokens;
+    std::stringstream ss(line);
+    std::string token;
+
+    ss >> token;
+    if (token != ".include_bin") {
+        return tokens;
+    }
+
+    std::string filename;
+    std::getline(ss, filename);
+    filename = trim(filename);
+
+    if (!filename.empty())
+    {
+        tokens.push_back(filename);
+    }
+
+    return tokens;
+}
+
+std::list<std::string> parse_macro_definition(const std::string& line) {
+    std::list<std::string> tokens;
+    std::string token;
+    bool in_quotes = false;
+    char quote_char = 0;
+
+    for (size_t i = 0; i < line.length(); ++i) {
+        char c = line[i];
+
+        if (in_quotes) {
+            token += c;
+            if (c == quote_char) {
+                in_quotes = false;
+            }
+        }
+        else {
+            if (c == '"' || c == '\'') {
+                in_quotes = true;
+                quote_char = c;
+                token += c;
+            }
+            else if (c == ',' || c == ' ' || c == '\t') {
+                if (!token.empty()) {
+                    tokens.push_back(token);
+                    token.clear();
+                }
+            }
+            else {
+                token += c;
+            }
+        }
+    }
+
+    if (!token.empty()) {
+        tokens.push_back(token);
+    }
+
+    return tokens;
+}
+
+std::list<std::string> parse_define(const std::string& line)
+{
+    std::stringstream ss(line);
+    std::list<std::string> tokens;
+    std::string buf;
+
+    ss >> buf;
+
+    while (ss >> buf)
+    {
+        tokens.push_back(buf);
+    }
+
+    return tokens;
+}
+
+std::string parse_include(const std::string& line)
+{
+    std::stringstream ss(line);
+    std::string command, filename;
+
+    ss >> command;
+    ss >> filename;
+
+    if (filename.empty()) 
+    {
+        return {};
+    }
+
+    // Обработка кавычек
+    if (filename.size() >= 2 &&
+        filename.front() == '"' &&
+        filename.back() == '"')
+    {
+        return filename.substr(1, filename.length() - 2);
+    }
+
+    return trim(filename);
+}
+
+std::list<std::string> parse_if(const std::string& line)
+{
+    std::stringstream ss(line);
+    std::list<std::string> tokens;
+    std::string buf;
+
+    while (ss >> buf)
+    {
+        tokens.push_back(buf);
+    }
+    
+    return tokens;
+}
+
+std::string extract_macro_name(const std::string& line) {
+    auto tokens = parse_preprocess_directive(line.substr(1));
+    if (tokens.size() < 2) return ""; 
+
+    std::string name = tokens.front();
+    tokens.pop_front();
+
+    name = tokens.front();
+
+    if (!isValidIdentifier(name)) {
+        return "";
+    }
+
+    return name;
+}
+
+std::string get_preprocessor_directive(const std::string& line)
+{
+    if (line.empty() || line[0] != '#') return "";
+
+    size_t start = line.find_first_not_of(" \t", 1);
+    if (start == std::string::npos) return "";
+
+    size_t end = line.find_first_of(" \t", start);
+    if (end == std::string::npos) {
+        return line.substr(start);
+    }
+    return line.substr(start, end - start);
+}
+
+std::list<std::string> split_text_to_lines(const std::string& text, bool trim_lines, bool del_comms)
 {
     std::list<std::string> lines;
     std::stringstream ss(text);
@@ -86,17 +279,16 @@ std::list<std::string> split_text_to_lines(const std::string& text, bool trim_li
 
     while (std::getline(ss, line))
     {
-        line = delete_comments(line);
-
+        if (del_comms)
+            line = delete_comments(line);
         if (trim_lines)
+        {
             line = trim(line);
-
-
+        }
         lines.push_back(line);
     }
     return lines;
 }
-
 
 bool is_intersect(int x, int x_size, int y, int y_size)
 {
@@ -135,7 +327,10 @@ bool isDirective(const std::string& line)
 
     ss >> directive;
 
-    return ASSEMBLER_DIRECTIVES.find(directive) != ASSEMBLER_DIRECTIVES.end();
+    if (directive.empty() || directive[0] != '.')
+        return false;
+
+    return ASSEMBLER_DIRECTIVES.find(directive.substr(1)) != ASSEMBLER_DIRECTIVES.end();
 }
 
 bool isMacro(const std::string& token)
@@ -169,7 +364,7 @@ bool isRegister(const std::string& token, int& regnum)
     return true;
 }
 
-std::string readFile(const std::string& filename, bool verbose)
+bool readFile(const std::string& filename, std::string& source_code, bool verbose)
 {
     qprintf(verbose, 1, __func__);
 
@@ -178,7 +373,7 @@ std::string readFile(const std::string& filename, bool verbose)
     if (!file.is_open())
     {
         error_log.addError(ErrorLog::FILE_CANNOT_OPEN, filename, -1);
-        return {};
+        return false;
     }
 
     file.seekg(0, std::ios::end);
@@ -187,23 +382,24 @@ std::string readFile(const std::string& filename, bool verbose)
     if (file.fail())
     {
         error_log.addError(ErrorLog::FILE_CANNOT_READ, "\nCannot determine file size: " + filename, -1);
-        return {};
+        return false;
     }
 
     file.seekg(0, std::ios::beg);
-    std::string content(size, '\0');
-    file.read(&content[0], size);
+    source_code.resize(size);
+    file.read(&source_code[0], size);
 
     if (!file.good() && file.gcount() != static_cast<std::streamsize>(size))
     {
         error_log.addError(ErrorLog::FILE_CANNOT_READ, filename, -1);
-        return {};
+        return false;
     }
 
-    qprintf(verbose, 0, "Successfully read file: %s (%i)", filename.c_str(), size);
+    qprintf(verbose, 0, "Successfully read file: %s (%zu bytes)", filename.c_str(), size);
 
     file.close();
-    return content;
+
+    return true;
 }
 
 
@@ -293,7 +489,24 @@ bool writeFile(const std::vector<instruction_t>& instructions, std::string outpu
     return true;
 }
 
-bool isValue(const std::string& token, int& value)
+bool writeFile(const std::string& filename, const std::string& str, bool verbose)
+{
+    qprintf(verbose, 1, "Writing to file: %s\n", filename.c_str());
+
+    std::ofstream file(filename);
+    if (!file.is_open())
+    {
+        error_log.addError(ErrorLog::FILE_CANNOT_OPEN, filename, -1);
+        return false;
+    }
+
+    file << str;
+
+    qprintf(verbose, 1, "Successfully wrote %zu bytes to %s\n", str.size(), filename.c_str());
+    return true;
+}
+
+bool isValue8(const std::string& token, int& value)
 {
     if (token.empty())
         return false;
@@ -302,7 +515,39 @@ bool isValue(const std::string& token, int& value)
         size_t pos = 0;
         value = std::stoi(token, &pos, 0);
 
-        return (pos == token.length()) && (value >= 0) && (value <= 0xFFFF);
+        return (pos == token.length()) && (value >= -128) && (value <= 255);
+    }
+    catch (...) {
+        return false;
+    }
+}
+
+bool isValue16(const std::string& token, int& value)
+{
+    if (token.empty())
+        return false;
+
+    try {
+        size_t pos = 0;
+        value = std::stoi(token, &pos, 0);
+
+        return (pos == token.length()) && (value >= -32768) && (value <= 65535);
+    }
+    catch (...) {
+        return false;
+    }
+}
+
+bool isValue32(const std::string& token, int& value)
+{
+    if (token.empty())
+        return false;
+
+    try {
+        size_t pos = 0;
+        value = std::stoi(token, &pos, 0);
+
+        return (pos == token.length()) && (value >= -2147483648) && (value <= 4294967295);
     }
     catch (...) {
         return false;
@@ -332,11 +577,6 @@ bool isPreprocessDirective(const std::string& line)
 
     std::string cleanDirective = directive.substr(1);
     return PREPROCESSOR_DIRECTIVES.find(cleanDirective) != PREPROCESSOR_DIRECTIVES.end();
-}
-
-bool isPreprocessMacros(const std::string& line)
-{
-
 }
 
 bool isInstruction(const std::string& line)
@@ -383,7 +623,7 @@ bool isValidInstruction(const std::string& line)
         if (opcode == "LWI" && i == 1)
         {
             int value;
-            if (!(isValue(arg, value) ||
+            if (!(isValue16(arg, value) ||
                 isLabel(arg, true)))
                 return false;
         }

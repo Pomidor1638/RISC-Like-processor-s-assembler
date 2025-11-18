@@ -1,77 +1,126 @@
+#pragma once
+
 #include "common.h"
 
+/**
+ * @class Preprocessor
+ * @brief Assembler preprocessor for handling directives and macros
+ *
+ * Handles directives: #include, #define, #if, #ifdef, #ifndef,
+ * #elif, #else, #endif, #macro, #endmacro
+ */
 class Preprocessor
 {
 public:
-	std::string preprocess(const std::string& source, bool verbose = false);
+    // ==================== CONSTRUCTORS AND DESTRUCTOR ====================
+    Preprocessor();
+    virtual ~Preprocessor() = default;
 
-	bool is_ok() const;
-	void clear();
+    // ==================== PUBLIC INTERFACE ====================
+    std::string preprocess(const std::string& source, bool verbose = false);
+    bool is_ok() const;
+    void clear();
 
-protected:
+private:
+    // ==================== DATA STRUCTURES ====================
 
-	bool prep_pass(const std::list<std::string>& lines);
+    /// @brief Preprocessor state machine states
+    enum PREPROCESS_STATE
+    {
+        STATE_FETCHING = 0,                   ///< Normal line reading and processing
+        STATE_READING_MACRO,                  ///< Reading macro body between #macro and #endmacro
+        STATE_SKIPPING_CONDITION_BLOCK,       ///< Skipping block due to false condition
+        STATE_READING_CONDITION_BLOCK,        ///< Reading block with true condition
+        STATE_WAITING_NEXT_CONDITION_BLOCK,   ///< Waiting for #elif/#else after true condition
+    };
 
+    /// @brief Constant definition from #define directive
+    struct Define
+    {
+        int start_line;        ///< Line number where definition starts
+        std::string name;      ///< Constant name
+        std::string value;     ///< Constant value
+    };
 
-	bool preprocessInclude(std::list<std::string>& tokens);
-	bool preprocessDefine(std::list<std::string>& tokens);
-	bool preprocessIf(std::list<std::string>& tokens);
-	bool preprocessElif(std::list<std::string>& tokens);
-	bool preprocessElse(std::list<std::string>& tokens);
-	bool preprocessElifdef(std::list<std::string>& tokens);
-	bool preprocessElifndef(std::list<std::string>& tokens);
-	bool preprocessIfdef(std::list<std::string>& tokens);
-	bool preprocessIfndef(std::list<std::string>& tokens);
-	bool preprocessEndif(std::list<std::string>& tokens);
-	bool preprocessMacro(std::list<std::string>& tokens);
-	bool preprocessEndMacro(std::list<std::string>& tokens);
+    /// @brief Macro definition block
+    struct MacroBlock
+    {
+        int start_line;                    ///< Line number where macro starts
+        std::string name;                  ///< Macro name
+        PreprocessorDirective type;        ///< Directive type
+        std::list<std::string> args;       ///< Macro arguments
+        std::list<std::string> lines;      ///< Macro body lines
+    };
 
+    /// @brief Preprocessor state frame for stack
+    struct PreprocessorState
+    {
+        std::string name;                  ///< State identifier name
+        PreprocessorDirective type;        ///< Directive type that created this state
+        PREPROCESS_STATE state;            ///< Current processing state
+        bool condition_met;                ///< Whether condition was met for conditional blocks
+        size_t start_line;                 ///< Line number where state was pushed
+        bool skip_content;                 ///< Whether to skip content in this state
 
-	bool preprocessReadingDefinition(const std::string& line);
+        PreprocessorState(const std::string& n, PreprocessorDirective t,
+            PREPROCESS_STATE s, size_t line)
+            : name(n), type(t), state(s), start_line(line),
+            condition_met(false), skip_content(false) {
+        }
+    };
 
-protected:
+    // ==================== CONSTANTS ====================
+    static const int MAX_INCLUDE_DEPTH = 64;  ///< Maximum include nesting depth
 
-	enum PREPROCESS_STATE
-	{
-		STATE_FETCHING = 0,
-		STATE_READING_DEFINE,
-		STATE_READING_MACRO,
-		STATE_SKIPPING_CONDITION_BLOCK,
-		STATE_READING_CONDITION_BLOCK,
-		STATE_WAITING_NEXT_CONDITION_BLOCK,
-	};
+private:
+    // ==================== PROCESSING METHODS ====================
+    bool prep_pass(const std::list<std::string>& lines);
+    bool process_line(const std::string& line);
 
-	struct MacroBlock
-	{
-		int start_line;
-		std::string				name;
-		PreprocessorDirective   type;
-		std::list<std::string>  args;
-		std::list<std::string> lines;
-	};
+    // Preprocessor directive handlers
+    bool preprocessInclude(const std::string& line);
+    bool preprocessDefine(const std::string& line);
+    bool preprocessElse(const std::string& line);
+    bool preprocessElifdef(const std::string& line);
+    bool preprocessElifndef(const std::string& line);
+    bool preprocessIfdef(const std::string& line);
+    bool preprocessIfndef(const std::string& line);
+    bool preprocessEndif(const std::string& line);
+    bool preprocessMacro(const std::string& line);
+    bool preprocessEndMacro(const std::string& line);
+    bool preprocessReadingDefinition(const std::string& line);
 
-	struct MacroState
-	{
-		std::string name;
-		MacroBlock* block;
-		PREPROCESS_STATE state;
-	};
+    bool expandMacroInvocation(const std::string& line) const;
+    std::string expandMacros(const std::string& line) const;
 
-	static const int MAX_INCLUDE_DEPTH = 64;
+    // ==================== STATE MANAGEMENT ====================
+    bool pushState(const std::string& name, PreprocessorDirective type,
+        PREPROCESS_STATE state, bool skip_content = false);
+    bool popState();
+    const PreprocessorState* getCurrentState() const;
 
-protected:
+    // State query methods
+    bool shouldSkipCurrentBlock() const;
+    bool isInConditionalBlock() const;
+    bool isInMacroDefinition() const;
 
-	bool is_okay;
-	bool verbose;
-	int  line_num;
-	int include_depth;
+    // Condition management
+    bool wasConditionMetInCurrentBlock() const;
 
-	std::stack<MacroState> state_stack;
-	std::map<std::string, MacroBlock> blocks;
+    // Evaluation methods
+    bool evaluateCondition(const std::string& condition) const;
+    bool isDefined(const std::string& macroName) const;
 
-	std::string preprocessed_code;
+    // ==================== MEMBER VARIABLES ====================
+    bool is_okay;                           ///< Whether preprocessing completed successfully
+    bool verbose;                           ///< Verbose output flag
+    int line_num;                           ///< Current line number being processed
+    int include_depth;                      ///< Current include nesting depth
 
-public:
-	Preprocessor();
-	virtual ~Preprocessor() = default;
+    std::stack<PreprocessorState> state_stack;  ///< State stack for nested processing
+
+    std::map<std::string, MacroBlock> blocks;   ///< Defined macro blocks
+    std::map<std::string, Define> defines;      ///< Defined constants
+
+    std::string preprocessed_code;          ///< Resulting preprocessed code
 };

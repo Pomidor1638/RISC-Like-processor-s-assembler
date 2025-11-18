@@ -112,7 +112,7 @@ bool Assembler::analyzeInstruction(const std::string& line)
 
 	if (!isValidInstruction(line))
 	{
-		error_log.addError(ErrorLog::UNEXCEPTED_INSTRUCTION, line, line_num);
+		error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_INSTRUCTION, line, line_num);
 		result = false;
 	}
 
@@ -123,31 +123,178 @@ bool Assembler::analyzeInstruction(const std::string& line)
 	}
 	else
 	{
-		error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_INSTRUCTION_PLACEMENT, line, line_num);
+		error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_PLACEMENT, line, line_num);
 		result = false;
 	}
 
 	return result;
 }
 
-
 bool Assembler::analyzeDirectiveString(const std::string line)
 {
-	qprintf(verbose, 4, __func__);
-	std::cout << "skip" << std::endl;
-	return false;
+	qprintf(verbose, 4, "%s\n%s", __func__, line.c_str());
+
+	auto tokens = parse_directiveString(line);
+
+	if (tokens.empty())
+	{
+		error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_STRING, line, line_num);
+		return false;
+	}
+
+	if (!curBlock)
+	{
+		error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_PLACEMENT, line, line_num);
+		return false;
+	}
+	std::string str_content = tokens.front();
+	int byte_length = str_content.length() + 1;
+	int instruction_length = (byte_length + 1) / 2;
+	curBlock->size += instruction_length;
+
+	qprintf(verbose, 2, "String: \"%s\", length: %d bytes, instructions: %d",
+		str_content.c_str(), byte_length, instruction_length);
+
+	return true;
 }
-bool Assembler::analyzeDirectiveData(const std::string line)
+
+bool Assembler::analyzeDirectiveByte(const std::string line)
 {
-	qprintf(verbose, 4, __func__);
-	std::cout << "skip" << std::endl;
-	return false;
+	qprintf(verbose, 4, "%s\n%s", __func__, line.c_str());
+	auto tokens = parse_directiveData(line);
+	if (!curBlock)
+	{
+		error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_PLACEMENT, line, line_num);
+		return false;
+	}
+	for (const auto& token : tokens)
+	{
+		int value;
+		if (!isValue8(token, value))
+		{
+			error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_IMM_VALUE, line, line_num);
+			return false;
+		}
+	}
+	if (tokens.empty())
+	{
+		error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_ARGUMENT, line, line_num);
+		return false;
+	}
+	int instruction_count = (tokens.size() + 1) / 2;
+	curBlock->size += instruction_count;
+	qprintf(verbose, 3, ".byte: %zu bytes -> %d instructions", tokens.size(), instruction_count);
+
+	return true;
 }
+
+bool Assembler::analyzeDirectiveData16(const std::string line)
+{
+	qprintf(verbose, 4, "%s\n%s", __func__, line.c_str());
+
+	auto tokens = parse_directiveData(line);
+
+	if (!curBlock)
+	{
+		error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_PLACEMENT, line, line_num);
+		return false;
+	}
+
+	for (const auto& token : tokens)
+	{
+		int value;
+		if (!isValue16(token, value))
+		{
+			error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_IMM_VALUE, line, line_num);
+			return false;
+		}
+	}
+
+	if (tokens.empty())
+	{
+		error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_ARGUMENT, line, line_num);
+		return false;
+	}
+
+	curBlock->size += tokens.size();
+	return true;
+}
+
+bool Assembler::analyzeDirectiveData32(const std::string line)
+{
+	qprintf(verbose, 4, "%s\n%s", __func__, line.c_str());
+
+	auto tokens = parse_directiveData(line);
+
+	if (!curBlock)
+	{
+		error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_PLACEMENT, line, line_num);
+		return false;
+	}
+
+	for (const auto& token : tokens)
+	{
+		int value;
+		if (!isValue32(token, value))
+		{
+			error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_IMM_VALUE, line, line_num);
+			return false;
+		}
+	}
+
+	if (tokens.empty())
+	{
+		error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_ARGUMENT, line, line_num);
+		return false;
+	}
+
+	curBlock->size += tokens.size() * 2;
+	return true;
+}
+
 bool Assembler::analyzeDirectiveLoadFile(const std::string line)
 {
-	qprintf(verbose, 4, __func__);
-	std::cout << "skip" << std::endl;
-	return false;
+	qprintf(verbose, 4, "%s\n%s", __func__, line.c_str());
+
+	auto tokens = parse_directiveLoadFile(line);
+
+	if (!curBlock)
+	{
+		error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_PLACEMENT, line, line_num);
+		return false;
+	}
+
+	if (tokens.empty())
+	{
+		error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_ARGUMENT, line, line_num);
+		return false;
+	}
+
+	std::string filename = tokens.front();
+
+	std::ifstream file(filename, std::ios::binary | std::ios::ate);
+	if (!file.is_open())
+	{
+		error_log.addError(ErrorLog::FILE_CANNOT_OPEN, line, line_num);
+		return false;
+	}
+
+	std::streamsize file_size = file.tellg();
+	file.close();
+
+	if (file_size < 0)
+	{
+		error_log.addError(ErrorLog::FILE_CANNOT_READ, line, line_num);
+		return false;
+	}
+
+	int instruction_count = (file_size + 1) / 2; // Округление вверх
+	curBlock->size += instruction_count;
+
+	qprintf(verbose, 2, "Load file: %s, size: %zd bytes, aligned: %zu bytes",
+		filename.c_str(), file_size, instruction_count * 2);
+
+	return true;
 }
 
 bool Assembler::analyzeDirective(const std::string line)
@@ -157,34 +304,41 @@ bool Assembler::analyzeDirective(const std::string line)
 	std::stringstream ss(line);
 	std::string str_directive;
 
-	auto it = ASSEMBLER_DIRECTIVES.find(str_directive);
+	ss >> str_directive;
 
+	std::string directive_name = str_directive;
+	if (directive_name[0] != '.') 
+	{
+		error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_DIRECTIVE, line, line_num);
+		return false;
+	}
+
+	directive_name = directive_name.substr(1);
+	auto it = ASSEMBLER_DIRECTIVES.find(directive_name);
 	if (it == ASSEMBLER_DIRECTIVES.end())
 	{
 		error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_DIRECTIVE, line, line_num);
 		return false;
 	}
 
-	ss >> str_directive;
-
-	AssemblerDirective dir = ASSEMBLER_DIRECTIVES.at(str_directive);
+	AssemblerDirective dir = it->second;
 
 	switch (dir)
 	{
-	case ASM_DATA:
-		analyzeDirectiveData(line);
+	case ASM_BYTE:
+		return analyzeDirectiveByte(line);
+	case ASM_DATA16:
+		return analyzeDirectiveData16(line);
+	case ASM_DATA32:
+		return analyzeDirectiveData32(line);
 	case ASM_STRING:
-		analyzeDirectiveString(line);
+		return analyzeDirectiveString(line);
 	case ASM_INCBIN:
-		analyzeDirectiveLoadFile(line);
-
+		return analyzeDirectiveLoadFile(line);
 	default:
 		error_log.addError(ErrorLog::ASSEMBLER_UNEXCEPTED_DIRECTIVE, line, line_num);
 		return false;
 	}
-	
-
-	return true;
 }
 
 bool Assembler::analyzeLabel(const std::string& line)

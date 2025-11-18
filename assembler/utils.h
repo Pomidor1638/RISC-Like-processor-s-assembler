@@ -9,7 +9,7 @@
 std::string trim(const std::string& s);
 std::string delete_comments(const std::string& s);
 std::vector<std::string> splitLines(const std::string& str);
-std::list<std::string> split_text_to_lines(const std::string& text, bool trim_lines = false);
+std::list<std::string> split_text_to_lines(const std::string& text, bool trim_lines, bool del_comms = true);
 
 // ============================================================================
 // PARSING FUNCTIONS
@@ -20,6 +20,15 @@ std::list<std::string> parse_preprocess_directive(const std::string& line);
 std::list<std::string> parse_directiveData(const std::string& line);
 std::list<std::string> parse_directiveString(const std::string& line);
 std::list<std::string> parse_directiveLoadFile(const std::string& line);
+std::list<std::string> parse_macro_definition(const std::string& line);
+
+std::list<std::string> parse_define(const std::string& line);
+	      std::string  parse_include(const std::string& line);
+std::list<std::string> parse_if (const std::string& line);
+
+std::string extract_macro_name(const std::string& line);
+std::string get_preprocessor_directive(const std::string& line);
+
 
 // ============================================================================
 // INSTRUCTION PROCESSING AND VALIDATION
@@ -42,7 +51,9 @@ bool isValidInstruction(const std::string& line);
 bool isMacro(const std::string& token);
 bool isOpcode(const std::string& token, INSTRUCTION_META& meta);
 bool isRegister(const std::string& token, int& regnum);
-bool isValue(const std::string& token, int& value);
+bool isValue8(const std::string& token, int& value);
+bool isValue16(const std::string& token, int& value);
+bool isValue32(const std::string& token, int& value);
 bool isLabel(std::string token, bool is_arg);
 bool isEntryPoint(const std::string& token, bool check_label = true);
 bool isValidIdentifier(const std::string& token);
@@ -55,4 +66,6 @@ void qprintf(bool verbose, int level, const char* format, ...);
 std::string qsprintf(const char* format, ...);
 
 bool writeFile(const std::vector<instruction_t>& data, std::string output_file, bool verbose, bool verilog_style = false);
-std::string readFile(const std::string& filename, bool verbose);
+bool writeFile(const std::string& filename, const std::string& str, bool verbose);
+
+bool readFile(const std::string& filename, std::string& source_code, bool verbose);

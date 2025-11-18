@@ -146,7 +146,9 @@
     <ClInclude Include="utils.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="sys_funcs_macro.asm" />
     <None Include="prog.asm" />
+    <None Include="sys_stack_defines.asm" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

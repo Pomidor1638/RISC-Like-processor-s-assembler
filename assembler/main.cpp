@@ -6,13 +6,13 @@
 
 int main(int argc, char* argv[]) {
 
-    /*std::string input_filename;
+    std::string input_filename;
     std::string output_filename;
     std::vector<instruction_t> instrs;
 
     if (argc < 3)
     {
-        std::cout << "Usage: asm.exe <inputfile> <outputfile>\noptional:\n\t-rom_size\n\t-verbose\n\t-verilog" << std::endl;
+        std::cout << "Usage: asm.exe <inputfile> <outputfile>\noptional:\n\t-rom_size\n\t-verbose\n\t-verilog\n\t-preprocess_out" << std::endl;
         return EXIT_FAILURE;
     }
 
@@ -21,6 +21,7 @@ int main(int argc, char* argv[]) {
 
     bool verilog = false;
     bool verbose = false;
+    bool prep_out = false;
     int rom_size = 16384;
 
     bool bad_param = false;
@@ -41,6 +42,10 @@ int main(int argc, char* argv[]) {
         {
             verilog = true;
         }
+        else if (str == "-preprocess_out")
+        {
+            prep_out = true;
+        }
         else
         {
             std::cout << "Unexcepted parameter " << str << std::endl;
@@ -58,45 +63,31 @@ int main(int argc, char* argv[]) {
     Preprocessor prepr;
 
     qprintf(verbose, 1, "readFile\n%s", input_filename.c_str());
-    std::string source_code = readFile(input_filename, verbose);
-    
+    std::string source_code;
+
+    readFile(input_filename, source_code, verbose);
 
     if (!error_log.has_errors())
+    {
         source_code = prepr.preprocess(source_code, verbose);
+    }
+    if (!error_log.has_errors() && prep_out)
+    {
+        writeFile(output_filename + ".prep", source_code, verbose);
+    }
     if (!error_log.has_errors())
+    {
         instrs = asmblr.assemble(source_code, rom_size, verbose);
+    }
     if (!error_log.has_errors())
+    {
         writeFile(instrs, output_filename, verbose, verilog);
-
+    }
     if (error_log.has_errors())
     {
-        std::cerr << error_log.getErrors() << std::endl;
+        std::cout << error_log.getErrors() << std::endl;
         return EXIT_FAILURE;
-    }*/
-
-    Preprocessor prepr;
-
-    std::string source = R"(
-
-    #define DEFINE_MACRO 0x132
-    #define DEFINE_WITH_ARGS(reg) reg
-    #include "testfile.asm"
-    
-    #if 1 > 0    
-        check if directive
-    #elseif
-        check else if
-    #endif
-
-    #ifdef DEFINE_MACRO
-        check ifdef
-    #endif
-    
-    DEFINE_MACRO
-    DEFINE_WITH_ARGS(0)
-    )";
-
-    std::cout << prepr.preprocess(source) << std::endl;
+    }
 
     return EXIT_SUCCESS;
 }

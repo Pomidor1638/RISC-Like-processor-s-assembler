@@ -16,6 +16,9 @@
 #include <map>
 #include <functional>
 
+#include <regex>
+#include <set>
+
 #include <algorithm>
 #include <cctype>
 
